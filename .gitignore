@@ -1,0 +1,20 @@
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+
+
+# Packer
+manifest.json
+
+# Python
+venv/
+__pycache__/
+.pytest_cache/
+
+# docs/diagrams
+style.md
+
+# notes
+design_structure_rationale.md
