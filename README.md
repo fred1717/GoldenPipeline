@@ -849,6 +849,13 @@ git commit -m "Fix: add DescribeInstanceTypes to pipeline policy"
 git push
 ```
 
+##### 13.2.1.11 Eleventh push after updating again cleaning up stranded resources, see in 13.2.10 (from root project folder)**
+**Eleventh push after updating `packer/harden_filesystem.sh`, see in 13.2.2.10 (from root project folder)**
+```bash
+git add .
+git commit -m "Clean stranded IAM resources from failed teardown"
+git push
+```
 
 
 
@@ -1198,9 +1205,52 @@ Inside the `PackerBuildEC2` statement, after `ec2:DescribeDhcpOptions`:
 "ec2:DescribeInstanceTypes"
 ```
 
+##### 13.2.2.10 Debugging steps after the tenth push
+**Checking the tenth push after several minutes, see in 13.2.1.10 (from root project folder)**
+```bash
+gh run list --limit 1 --json databaseId,conclusion,name,createdAt
+```
+```json
+[
+  {
+    "conclusion": "failure",
+    "createdAt": "2026-03-10T20:36:22Z",
+    "databaseId": 22923146667,
+    "name": "GoldenPipeline CI/CD"
+  }
+]
+```
+**For the tenth time, retrieving the log output of the failed step only (from root project folder)**
+```bash
+gh run view 22923146667 --log-failed
+```
+**Verdict**
+The error is that `GoldenPipeline-ec2-role` already exists in the AWS account from a previous pipeline run where teardown failed.  
+It is a stranded IAM resource that was not cleaned up earlier alongside:
+- the VPC
+- security groups
+- endpoints
 
+The stranded IAM resources need deleting before the next push. 
+There are 3 components to clean up:
+- the IAM role
+- its policy attachment
+- the instance profile
 
+**Checking whether there still is a stranded AMI from the successful Packer build**
+```bash
+aws ec2 describe-images --owners self --filters "Name=tag:Project,Values=GoldenPipeline" --query "Images[*].[Name,ImageId,State]" --output text
+```
+**Example output**
+Nothing, so there is no stranded AMI left.
 
+**Cleaning up the stranded IAM resources (from any directory):**
+```bash
+aws iam remove-role-from-instance-profile --instance-profile-name GoldenPipeline-ec2-profile --role-name GoldenPipeline-ec2-role
+aws iam delete-instance-profile --instance-profile-name GoldenPipeline-ec2-profile
+aws iam detach-role-policy --role-name GoldenPipeline-ec2-role --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+aws iam delete-role --role-name GoldenPipeline-ec2-role
+```
 
 
 
