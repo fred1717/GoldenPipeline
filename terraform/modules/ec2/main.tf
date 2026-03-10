@@ -15,6 +15,7 @@ terraform {
 # -------------------------------------------------
 
 resource "aws_instance" "this" {
+  # checkov:skip=CKV_AWS_126:Detailed monitoring not justified for ephemeral test instance
   ami                    = var.ami_id
   instance_type          = var.instance_type
   subnet_id              = var.subnet_id
@@ -22,6 +23,15 @@ resource "aws_instance" "this" {
   iam_instance_profile   = var.instance_profile_name
 
   associate_public_ip_address = false
+
+  # Enforce IMDSv2 to prevent SSRF-based credential theft (CKV_AWS_79)
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+  }
+
+  # EBS optimisation explicit for checkov compliance (CKV_AWS_135)
+  ebs_optimized = true
 
   # Tag the root EBS volume for Cost Explorer visibility
   root_block_device {

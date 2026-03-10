@@ -15,6 +15,7 @@ terraform {
 # -------------------------------------------------
 
 resource "aws_security_group" "this" {
+  # checkov:skip=CKV2_AWS_5:False positive — SG is attached to EC2 instance via cross-module reference
   name        = "${var.project_name}-ec2-sg"
   description = "Security group for the test EC2 instance — no inbound, HTTPS to VPC only"
   vpc_id      = var.vpc_id

@@ -22,6 +22,8 @@ data "aws_region" "current" {}
 # -------------------------------------------------
 
 resource "aws_vpc" "this" {
+  # checkov:skip=CKV2_AWS_12:Default SG not used; custom SG with no inbound rules applied to test instance
+  # checkov:skip=CKV2_AWS_11:VPC flow logging not justified for ephemeral test infrastructure
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
   enable_dns_hostnames = true

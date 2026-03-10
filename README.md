@@ -796,6 +796,20 @@ git commit -m "Fix tflint: adding the 'required_providers' block at the top of e
 git push
 ```
 
+**Fifth push after "fixing" `checkov` error messages (from root project folder)**
+After amending a few module `main.tf`, see in 13.2.2:
+```bash
+git add .
+git commit -m "Fix checkov: enforce IMDSv2, EBS optimisation, suppress justified checks"
+git push
+```
+
+
+
+
+
+
+
 
 #### 13.2.2 Debugging steps
 **First pipeline run (initial commit)**
@@ -815,6 +829,7 @@ All 10 were the same 2 violations:
 The `root main.tf` was amended with a terraform block containing both attributes.
 Each module `main.tf` was amended with a terraform block containing `required_version` only.
 The `required_providers` block is only needed at the root level.
+That was at least the conclusion drawn here, which unfortunately proved to be wrong (see next debugging step).
 
 **Debugging steps after third push (`tflint` fix, from root project folder)**
 Listing the most recent pipeline run and returning 4 fields:
@@ -858,9 +873,68 @@ terraform {
 }
 ```
 
+**Checking the fourth push after renewed error message (same command as before, from the root project folder)**
+```bash
+gh run list --limit 1 --json databaseId,conclusion,name,createdAt
+```
+**Example output**
+```json
+[
+  {
+    "conclusion": "failure",
+    "createdAt": "2026-03-10T15:12:43Z",
+    "databaseId": 22909531271,
+    "name": "GoldenPipeline CI/CD"
+  }
+]
+```
+**Again, retrieving the log output of the failed step only (from root project folder)**
+```bash
+gh run view 22909531271 --log-failed
+```
+**Explanation of log error messages (around 100 lines, all pointing to the same error)**
+`tflint` passed but `checkov` flagged 6 issues.
+The 6 issues fall into 2 categories:
+**Issues to fix (genuine security best practice):**
+- **CKV_AWS_79** — Instance Metadata Service v1 is not disabled.
+    `IMDSv1` is a known attack vector:
+        The Instance Metadata Service exposes sensitive information (IAM credentials, instance identity) at a fixed URL (http://169.254.169.254).
+        In version 1, any process on the instance can query it with a simple HTTP GET request.
+        An attacker could gain access to a web application running on the instance (for example, via `SSRF` - Server-Side Request Forgery).
+        In that case, they would retrieve the IAM role credentials from the metadata endpoint.
+    On the other hand, `IMDSv2` requires a session token obtained via a PUT request first, which blocks most `SSRF` attacks.
+        A `metadata_options` block is added to the EC2 module to enforce `IMDSv2`.
+- **CKV_AWS_135** — EBS optimisation is not explicitly set.
+    `t3.micro` is EBS optimised by default, but `checkov` requires the explicit attribute `ebs_optimized = true`.
 
+**Issues suppressed with justification (not appropriate for ephemeral test infrastructure):**
+- **CKV_AWS_126** — Detailed monitoring not enabled.
+    This enables 1-minute CloudWatch metrics at additional cost.
+    The test instance lives for minutes during validation.
+    Not justified for this use case.
+- **CKV2_AWS_11** — VPC flow logging not enabled.
+    This adds cost and a CloudWatch Log Group.
+    The VPC is ephemeral test infrastructure destroyed after validation.
+    Not justified.
+- **CKV2_AWS_12** — Default security group does not restrict all traffic.
+    This requires managing the default security group explicitly.
+    The test instance uses a custom security group with no inbound rules and restricted egress.
+    No security benefit for this use case.
+- **CKV2_AWS_5** — Security group not attached to a resource.
+    This is a false positive, a problem that does not actually exist.
+    The security group is attached to the EC2 instance via a cross-module reference that `checkov` cannot resolve.
 
-
+Suppressions are applied as inline skip comments in the relevant Terraform resource definitions.
+The justification is visible to anyone reading the code.
+The comments go in:
+- `modules/ec2/main.tf`
+- `modules/vpc/main.tf`
+- `modules/security_group/main.tf`.
+They are placed directly above the resource block that triggers the check.
+For example, in `modules/ec2/main.tf`:
+```text
+# checkov:skip=CKV_AWS_126:Detailed monitoring not justified for ephemeral test instance
+```
 
 
 
