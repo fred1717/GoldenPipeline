@@ -804,6 +804,12 @@ git commit -m "Fix checkov: enforce IMDSv2, EBS optimisation, suppress justified
 git push
 ```
 
+**Sixth push after creating a default VPC, see in 13.2.2 (from root project folder)**
+```bash
+git add .
+git commit -m "Add default VPC as Packer build prerequisite"
+git push
+```
 
 
 
@@ -872,27 +878,6 @@ terraform {
   }
 }
 ```
-
-**Checking the fourth push after renewed error message (same command as before, from the root project folder)**
-```bash
-gh run list --limit 1 --json databaseId,conclusion,name,createdAt
-```
-**Example output**
-```json
-[
-  {
-    "conclusion": "failure",
-    "createdAt": "2026-03-10T15:12:43Z",
-    "databaseId": 22909531271,
-    "name": "GoldenPipeline CI/CD"
-  }
-]
-```
-**Again, retrieving the log output of the failed step only (from root project folder)**
-```bash
-gh run view 22909531271 --log-failed
-```
-**Explanation of log error messages (around 100 lines, all pointing to the same error)**
 `tflint` passed but `checkov` flagged 6 issues.
 The 6 issues fall into 2 categories:
 **Issues to fix (genuine security best practice):**
@@ -936,6 +921,82 @@ For example, in `modules/ec2/main.tf`:
 # checkov:skip=CKV_AWS_126:Detailed monitoring not justified for ephemeral test instance
 ```
 
+**Checking the fifth push after renewed error messages (same command as before, from the root project folder)**
+```bash
+gh run list --limit 1 --json databaseId,conclusion,name,createdAt
+```
+**Example output**
+```json
+[
+  {
+    "conclusion": "failure",
+    "createdAt": "2026-03-10T16:49:44Z",
+    "databaseId": 22913904305,
+    "name": "GoldenPipeline CI/CD"
+  }
+]
+```
+**Again, retrieving the log output of the failed step only (from root project folder)**
+```bash
+gh run view 22913904305 --log-failed
+```
+**Explanation of log error messages (around 1000 lines)**
+Stage 1 passed entirely. 
+The pipeline progressed to Stage 2 (Packer build) and failed.
+The error is: "No default VPC for this user".
+Packer tries to create a temporary security group in the default VPC when no `vpc_id` is specified in the template. 
+The account has no default VPC in `us-east-1`.
+
+There are 2 options:
+- Create a default VPC in `us-east-1`:
+    This is an account-level resource that Packer expects to exist. 
+    It is also the standard approach for Packer builds. 
+    It falls into the same category as the OIDC setup, which is bootstrap infrastructure.
+- Add `vpc_id` and `subnet_id` to the Packer template:
+    The build instance is then launched in a specific VPC. 
+    However, that VPC must have internet access as the hardening scripts run `dnf install`.
+    Therefore, it cannot be the Terraform-managed private VPC.
+
+For these reasons the first option is preferable.
+**From any directory:**
+```bash
+aws ec2 create-default-vpc-us-east-1
+```
+**Example output**
+```json
+{
+    "Vpc": {
+        "OwnerId": "180294215772",
+        "InstanceTenancy": "default",
+        "Ipv6CidrBlockAssociationSet": [],
+        "CidrBlockAssociationSet": [
+            {
+                "AssociationId": "vpc-cidr-assoc-0a5cd84e698224b24",
+                "CidrBlock": "172.31.0.0/16",
+                "CidrBlockState": {
+                    "State": "associated"
+                }
+            }
+        ],
+        "IsDefault": true,
+        "Tags": [],
+        "VpcId": "vpc-05f6c7d401bf376b4",
+        "State": "pending",
+        "CidrBlock": "172.31.0.0/16",
+        "DhcpOptionsId": "dopt-088ca909502fe7db0"
+    }
+}
+```
+**The default VPC is then tagged for visibility:**
+```bash
+VPC_ID=$(aws ec2 describe-vpcs --filters "Name=isDefault,Values=true" --query "Vpcs[0].VpcId" --output text)
+
+aws ec2 create-tags --resources "${VPC_ID}" --tags Key=Name,Value=default-vpc-us-east-1
+```
+
+This is not project infrastructure.
+It is an account-level prerequisite, in the same category as the OIDC provider.
+It is not managed by Terraform and is not destroyed with the project.
 
 
 ### 13.3 Post-deployment commits
