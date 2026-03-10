@@ -857,14 +857,21 @@ git commit -m "Clean stranded IAM resources from failed teardown"
 git push
 ```
 
-##### 13.2.1.12 Twelvth push after updating again cleaning up stranded resources, see in 13.2.11 (from root project folder)**
-**Twelvth push after updating `packer/harden_filesystem.sh`, see in 13.2.2.11 (from root project folder)**
+##### 13.2.1.12 twelfth push after updating again cleaning up stranded resources, see in 13.2.11 (from root project folder)**
+**Twelfth push after updating `packer/harden_filesystem.sh`, see in 13.2.2.11 (from root project folder)**
 ```bash
 git add .
-git commit -m "Fix: add DescribeInstanceTypes to pipeline policy (forgotten before) and clean stranded resources from failed teardown"
+git commit -m "Fix: add DescribeInstanceTypes to pipeline policy (forgotten before) and clean up stranded resources from failed teardown"
 git push
 ```
 
+##### 13.2.1.13 thirteenth push after updating `pipeline-permissions-policy.json` and cleaning up stranded resources, see in 13.2.12 (from root project folder)**
+**`pipeline-permissions-policy.json` , see in 13.2.2.12 (from root project folder)**
+```bash
+git add .
+git commit -m "Fix: replace individual ec2:Describe actions with ec2:Describe* wildcard and clean up stranded resources from failed teardown"
+git push
+```
 
 
 
@@ -1279,7 +1286,7 @@ aws iam detach-role-policy --role-name GoldenPipeline-ec2-role --policy-arn arn:
 aws iam delete-role --role-name GoldenPipeline-ec2-role
 ```
 
-##### 13.2.2.11 Debugging steps after the elevemth push
+##### 13.2.2.11 Debugging steps after the eleventh push
 **Checking the eleventh push after several minutes, see in 13.2.1.11 (from root project folder)**
 ```bash
 gh run list --limit 1 --json databaseId,conclusion,name,createdAt
@@ -1312,19 +1319,38 @@ aws iam create-policy-version --policy-arn "${POLICY_ARN}" --policy-document fil
 
 But now, a new cleanup is necessary to avoid new stranded resources.
 **Cleanup**
+**Check for running instances and delete them**
+```bash
+for INSTANCE_ID in $(aws ec2 describe-instances --filters "Name=tag:Project,Values=GoldenPipeline" "Name=instance-state-name,Values=running,stopped" --query "Reservations[*].Instances[*].InstanceId" --output text);
+do
+  aws ec2 terminate-instances --instance-ids "${INSTANCE_ID}"
+done
+```
+
+**Check for stranded VPC endpoints and delete them**
+```bash
+aws ec2 describe-vpc-endpoints --filters "Name=tag:Project,Values=GoldenPipeline" --query "VpcEndpoints[*].[Tags[?Key=='Name']|[0].Value,VpcEndpointId,State]" --output text
+ENDPOINT_IDS=$(aws ec2 describe-vpc-endpoints --filters "Name=tag:Project,Values=GoldenPipeline" --query "VpcEndpoints[*].VpcEndpointId" --output text)
+aws ec2 delete-vpc-endpoints --vpc-endpoint-ids ${ENDPOINT_IDS}
+```
+
 **Check and delete Security Groups**
 ```bash
 aws ec2 describe-security-groups --filters "Name=tag:Project,Values=GoldenPipeline" --query "SecurityGroups[*].[Tags[?Key=='Name']|[0].Value,GroupId]" --output text
-aws ec2 delete-security-group --group-id sg-0efd13ab4213b817e
-aws ec2 delete-security-group --group-id sg-0220c1c723239fd77
+for SG_ID in $(aws ec2 describe-security-groups --filters "Name=tag:Project,Values=GoldenPipeline" --query "SecurityGroups[*].GroupId" --output text); 
+    do aws ec2 delete-security-group --group-id "${SG_ID}"
+done
 ```
 
 **Check VPC and subnet, then delete them**
 ```bash
-aws ec2 describe-vpcs --filters "Name=tag:Project,Values=GoldenPipeline" --query "Vpcs[*].[Tags[?Key=='Name']|[0].Value,VpcId]" --output text
-aws ec2 describe-subnets --filters "Name=vpc-id,Values=vpc-086067612b5e0a722" --query "Subnets[*].[Tags[?Key=='Name']|[0].Value,SubnetId]" --output text
-aws ec2 delete-subnet --subnet-id subnet-04190f808017c0a9d
-aws ec2 delete-vpc --vpc-id vpc-086067612b5e0a722
+VPC_ID=$(aws ec2 describe-vpcs --filters "Name=tag:Project,Values=GoldenPipeline" --query "Vpcs[0].VpcId" --output text)
+
+for SUBNET_ID in $(aws ec2 describe-subnets --filters "Name=vpc-id,Values=${VPC_ID}" --query "Subnets[*].SubnetId" --output text);
+  do aws ec2 delete-subnet --subnet-id "${SUBNET_ID}"
+done
+
+aws ec2 delete-vpc --vpc-id "${VPC_ID}"
 ```
 
 **Check for stranded IAM resources and clean them up, as in 13.2.2.10**
@@ -1334,12 +1360,6 @@ aws iam remove-role-from-instance-profile --instance-profile-name GoldenPipeline
 aws iam delete-instance-profile --instance-profile-name GoldenPipeline-ec2-profile
 aws iam detach-role-policy --role-name GoldenPipeline-ec2-role --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
 aws iam delete-role --role-name GoldenPipeline-ec2-role
-```
-
-**Check for stranded VPC endpoints and delete them**
-```bash
-aws ec2 describe-vpc-endpoints --filters "Name=tag:Project,Values=GoldenPipeline" --query "VpcEndpoints[*].[Tags[?Key=='Name']|[0].Value,VpcEndpointId,State]" --output text
-aws ec2 delete-vpc-endpoints --vpc-endpoint-ids vpce-022fbb93b0f535fe6 vpce-0901654c4e50d1de8 vpce-05b40b1c91f958e0c
 ```
 
 **Checking the cleanup was complete, for each resource type**
@@ -1359,6 +1379,156 @@ aws ec2 describe-images --owners self --filters "Name=tag:Project,Values=GoldenP
 ```
 **Expected output**
 Nothing, which means that the cleanup was successful.
+
+##### 13.2.2.12 Debugging steps after the twelfth push
+**Checking the twelfth push after several minutes, see in 13.2.1.12 (from root project folder)**
+```bash
+gh run list --limit 1 --json databaseId,conclusion,name,createdAt
+```
+```json
+[
+  {
+    "conclusion": "failure",
+    "createdAt": "2026-03-10T22:02:16Z",
+    "databaseId": 22926297331,
+    "name": "GoldenPipeline CI/CD"
+  }
+]
+```
+**For the twelfth time, retrieving the log output of the failed step only (from root project folder)**
+```bash
+gh run view 22926297331 --log-failed
+```
+**Verdict**
+The incremental approach to permissions is not working.  
+Every push uncovers another missing `Describe*` action at teardown.
+The root cause: 
+- Terraform reads multiple instance attributes during `destroy` that are not needed during `apply`. 
+- Adding them one at a time will continue to fail.
+
+The proper fix is to replace the individual `ec2:Describe*` actions in the `PackerBuildEC2` statement with a single wildcard:
+```json
+"ec2:Describe*"
+```
+
+This covers all EC2 read-only operations.  
+It is still least privilege because `Describe*` actions are read-only and cannot modify any resource.  
+AWS documentation explicitly considers `Describe*` safe for read-only roles.
+This replaces all the individual `ec2:Describe*` entries in the `PackerBuildEC2` statement (`pipeline-permissions-policy.json`):
+- `ec2:DescribeInstances`
+- `ec2:DescribeInstanceStatus`
+- `ec2:DescribeImages`
+- and all others
+
+**The `PackerBuildEC2` statement in `pipeline-permissions-policy.json` becomes:**
+```json
+{
+  "Sid": "PackerBuildEC2",
+  "Effect": "Allow",
+  "Action": [
+    "ec2:RunInstances",
+    "ec2:TerminateInstances",
+    "ec2:StopInstances",
+    "ec2:StartInstances",
+    "ec2:Describe*"
+  ],
+```
+
+ **Updating again the policy**
+```bash
+POLICY_ARN=$(aws iam list-policies --query "Policies[?PolicyName=='GoldenPipeline-CICD'].Arn" --output text)
+
+aws iam create-policy-version --policy-arn "${POLICY_ARN}" --policy-document file://pipeline-permissions-policy.json --set-as-default
+```
+**Example output**
+```bash
+{
+    "PolicyVersion": {
+        "VersionId": "v5",
+        "IsDefaultVersion": true,
+        "CreateDate": "2026-03-10T22:29:53+00:00"
+    }
+}
+```
+
+Once again, a cleanup is necessary to avoid stranded resources after failed teardown.
+**Going through the same cleanup steps as in 13.2.2.11**
+**Check for running instances and delete them**
+```bash
+for INSTANCE_ID in $(aws ec2 describe-instances --filters "Name=tag:Project,Values=GoldenPipeline" "Name=instance-state-name,Values=running,stopped" --query "Reservations[*].Instances[*].InstanceId" --output text);
+do
+  aws ec2 terminate-instances --instance-ids "${INSTANCE_ID}"
+done
+```
+
+**Check for stranded VPC endpoints and delete them**
+```bash
+aws ec2 describe-vpc-endpoints --filters "Name=tag:Project,Values=GoldenPipeline" --query "VpcEndpoints[*].[Tags[?Key=='Name']|[0].Value,VpcEndpointId,State]" --output text
+ENDPOINT_IDS=$(aws ec2 describe-vpc-endpoints --filters "Name=tag:Project,Values=GoldenPipeline" --query "VpcEndpoints[*].VpcEndpointId" --output text)
+aws ec2 delete-vpc-endpoints --vpc-endpoint-ids ${ENDPOINT_IDS}
+```
+
+**Check and delete Security Groups**
+```bash
+aws ec2 describe-security-groups --filters "Name=tag:Project,Values=GoldenPipeline" --query "SecurityGroups[*].[Tags[?Key=='Name']|[0].Value,GroupId]" --output text
+for SG_ID in $(aws ec2 describe-security-groups --filters "Name=tag:Project,Values=GoldenPipeline" --query "SecurityGroups[*].GroupId" --output text); 
+    do aws ec2 delete-security-group --group-id "${SG_ID}"
+done
+```
+
+**Check VPC and subnet, then delete them**
+```bash
+VPC_ID=$(aws ec2 describe-vpcs --filters "Name=tag:Project,Values=GoldenPipeline" --query "Vpcs[0].VpcId" --output text)
+
+for SUBNET_ID in $(aws ec2 describe-subnets --filters "Name=vpc-id,Values=${VPC_ID}" --query "Subnets[*].SubnetId" --output text);
+  do aws ec2 delete-subnet --subnet-id "${SUBNET_ID}"
+done
+
+aws ec2 delete-vpc --vpc-id "${VPC_ID}"
+```
+
+**Check for stranded IAM resources and clean them up, as in 13.2.2.10**
+```bash
+aws iam get-instance-profile --instance-profile-name GoldenPipeline-ec2-profile --query "InstanceProfile.InstanceProfileName" --output text 2>&1
+aws iam remove-role-from-instance-profile --instance-profile-name GoldenPipeline-ec2-profile --role-name GoldenPipeline-ec2-role
+aws iam delete-instance-profile --instance-profile-name GoldenPipeline-ec2-profile
+aws iam detach-role-policy --role-name GoldenPipeline-ec2-role --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+aws iam delete-role --role-name GoldenPipeline-ec2-role
+```
+
+**Checking the cleanup was complete, for each resource type**
+**EC2 instance tagged with `Project = GoldenPipeline`**
+```bash
+aws ec2 describe-instances --filters "Name=tag:Project,Values=GoldenPipeline" "Name=instance-state-name,Values=running,stopped" --query "Reservations[*].Instances[*].[Tags[?Key=='Name']|[0].Value,InstanceId,State.Name]" --output text
+```
+**Checking VPC endpoints, Security Groups, VPCs**
+```bash
+aws ec2 describe-vpc-endpoints --filters "Name=tag:Project,Values=GoldenPipeline" --query "VpcEndpoints[*].[Tags[?Key=='Name']|[0].Value,VpcEndpointId,State]" --output text
+aws ec2 describe-security-groups --filters "Name=tag:Project,Values=GoldenPipeline" --query "SecurityGroups[*].[Tags[?Key=='Name']|[0].Value,GroupId]" --output text
+aws ec2 describe-vpcs --filters "Name=tag:Project,Values=GoldenPipeline" --query "Vpcs[*].[Tags[?Key=='Name']|[0].Value,VpcId]" --output text
+```
+**Checking for any stranded AMIs created by Packer builds that were not deregistered during failed teardowns**
+```bash
+aws ec2 describe-images --owners self --filters "Name=tag:Project,Values=GoldenPipeline" --query "Images[*].[Name,ImageId,State]" --output text
+```
+**Expected output**
+Nothing, which means that the cleanup was successful.
+
+##### 13.2.2.13 Debugging steps after the thirteenth push
+**Checking the thirteenth push after several minutes, see in 13.2.1.13 (from root project folder)**
+```bash
+gh run list --limit 1 --json databaseId,conclusion,name,createdAt
+```
+```json
+
+```
+**For the twelfth time, retrieving the log output of the failed step only (from root project folder)**
+```bash
+gh run view  --log-failed
+```
+**Verdict**
+
+
 
 
 
