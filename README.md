@@ -1021,7 +1021,7 @@ Stage 1 and Stage 2 both passed.
 The Packer build succeeded. 
 The pipeline failed at Stage 3 (`Terraform apply`) with 2 errors:
 - Error 1: Non-ASCII character in security group description.
-    The description in modules/security_group/main.tf contains an em dash (—):
+    The description in `modules/security_group/main.tf` contains an em dash (—):
     "Security group for the test EC2 instance — no inbound, HTTPS to VPC only"
     AWS rejects non-ASCII characters in security group descriptions.
     The em dash needs replacing with a regular dash (-).
@@ -1040,14 +1040,48 @@ POLICY_ARN=$(aws iam list-policies --query "Policies[?PolicyName=='GoldenPipelin
 
 aws iam create-policy-version --policy-arn "${POLICY_ARN}" --policy-document file://pipeline-permissions-policy.json --set-as-default
 ```
+**Example output**
+```bash
+{
+    "PolicyVersion": {
+        "VersionId": "v2",
+        "IsDefaultVersion": true,
+        "CreateDate": "2026-03-10T19:09:07+00:00"
+    }
+}
+```
 
 **Seventh push (from root project folder)**
 ```bash
 git add .
-git commit -m "Fix: replace em dash in SG description, add RevokeSecurityGroupEgress to pipeline policy"
+git commit -m "Fix: replace em dash in SG description, also add RevokeSecurityGroupEgress to pipeline policy"
 git push
 ```
+**Checking the seventh push after several minutes that everything went well**
+```bash
+gh run list --limit 1 --json databaseId,conclusion,name,createdAt
+```
+```json
+[
+  {
+    "conclusion": "failure",
+    "createdAt": "2026-03-10T18:08:04Z",
+    "databaseId": 22917224601,
+    "name": "GoldenPipeline CI/CD"
+  }
+]
+```
+**For the sixth time, retrieving the log output of the failed step only (from root project folder)**
+```bash
+gh run view 22917224601 --log-failed
+```
+**Verdict**
+The actual problem is that the `ec2:RevokeSecurityGroupEgress` permission was not added to the IAM policy. 
+The code was pushed, but the policy in AWS was not updated.
 
+2 steps are needed:
+- Update `pipeline-permissions-policy.json` locally. 
+    In the TerraformVPC statement, after "ec2:ModifyVpcEndpoint", add "ec2:RevokeSecurityGroupEgress".
 
 
 
