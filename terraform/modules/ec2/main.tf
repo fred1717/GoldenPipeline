@@ -1,3 +1,8 @@
+terraform {
+  required_version = ">= 1.5.0"
+}
+
+
 # -------------------------------------------------
 # Test EC2 Instance (launched from the baked AMI)
 # -------------------------------------------------
