@@ -754,6 +754,7 @@ The description is kept concise and front-loads the key differentiators visible 
 The initialisation of the local project folder and its connection to the remote repository must happen before running `terraform destroy`.
 This way, the code will remain safely in GitHub before the whole infrastructure is torn down.
 
+#### 13.2.1 Git commands
 **From the project root directory `GoldenPipeline/`:**
 ```bash
 git init
@@ -777,6 +778,90 @@ git add .
 git commit -m "OIDC setup: trust policy, pipeline permissions policy, .gitignore updated"
 git push
 ```
+
+**Third push after `tflint` error message (from root project folder)**
+All `main.tf` were missing the block indicating the Terraform version.
+The root `main.tf` also needed the `required_providers` block inside it.
+```bash
+git add .
+git commit -m "Fix tflint: add required_version and required_providers"
+git push
+```
+
+**Fourth push after renewed `tflint` error message (from root project folder)**
+After inserting the `required_providers` block at the top of each module `main.tf`:
+```bash
+git add .
+git commit -m "Fix tflint: adding the 'required_providers' block at the top of each module 'main.tf'"
+git push
+```
+
+
+#### 13.2.2 Debugging steps
+**First pipeline run (initial commit)**
+The first push triggered the pipeline.
+It failed at the "Configure AWS credentials via OIDC" step.
+This was expected: the OIDC provider and IAM role did not exist yet at that point.
+
+**Second pipeline run (OIDC setup commit)**
+The second push triggered the pipeline after the OIDC setup was complete.
+The OIDC authentication succeeded.
+The pipeline progressed to Stage 1 (static analysis) and failed at `tflint`.
+`tflint` flagged 10 issues across 5 files.
+All 10 were the same 2 violations:
+- missing `required_version` attribute in the terraform block
+- missing `required_providers` with a version constraint for the AWS provider
+
+The `root main.tf` was amended with a terraform block containing both attributes.
+Each module `main.tf` was amended with a terraform block containing `required_version` only.
+The `required_providers` block is only needed at the root level.
+
+**Debugging steps after third push (`tflint` fix, from root project folder)**
+Listing the most recent pipeline run and returning 4 fields:
+- the run ID
+- whether it succeeded or failed
+- the workflow name
+- when it was triggered
+```bash
+gh run list --limit 1 --json databaseId,conclusion,name,createdAt
+```
+**Example output**
+```json
+[
+  {
+    "conclusion": "failure",
+    "createdAt": "2026-03-10T14:34:51Z",
+    "databaseId": 22907781148,
+    "name": "GoldenPipeline CI/CD"
+  }
+]
+```
+
+**Retrieving the log output of the failed step only (from root project folder)**
+```bash
+gh run view 22907781148 --log-failed
+```
+**Explanation of log error messages (around 100 lines, all pointing to the same error)**
+The verdict is that the earlier conclusion was wrong: 
+`tflint` requires `required_providers` in each module as well, not only at the root level.
+That means inserting the same block as in the root `main.tf` at the top of each module `main.tf`.
+```json
+terraform {
+  required_version = ">= 1.5.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+```
+
+
+
+
+
 
 
 ### 13.3 Post-deployment commits
