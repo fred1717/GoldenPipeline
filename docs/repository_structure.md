@@ -1,15 +1,16 @@
 ﻿```text
 GoldenPipeline/
     .gitignore
+    pipeline-permissions-policy.json
     pytest.ini
     README.md
     requirements-dev.txt
+    trust-policy.json
 
     docs/
         architecture_decisions.md
         queries.md
         repository_structure.md
-        style.md
 
         diagrams/
             goldenpipeline-architecture.svg
@@ -40,16 +41,10 @@ GoldenPipeline/
         harden_updates.sh
 
 
-    scripts/
-        format_xxx.py
-
-
     terraform/
         .terraform.lock.hcl
         main.tf
         outputs.tf
-        terraform.tfstate
-        terraform.tfstate.backup
         terraform.tfvars.example
         variables.tf
 

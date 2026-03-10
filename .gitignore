@@ -4,7 +4,6 @@ terraform.tfstate
 terraform.tfstate.backup
 *.tfvars
 
-
 # Packer
 manifest.json
 
@@ -18,3 +17,6 @@ style.md
 
 # notes
 design_structure_rationale.md
+
+# OIDC setup (contains account ID)
+trust-policy.json

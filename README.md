@@ -328,6 +328,217 @@ A leaked secret grants persistent access to the AWS account.
     - an IAM `OIDC` identity provider in AWS
     - a trust policy on the IAM role restricting access to the specific repository
 
+The OIDC provider and pipeline IAM role are not managed by Terraform.
+This is a deliberate exception to the IaC discipline principle documented in section 3.3 of `architecture_decisions.md`, 
+see [docs/architecture_decisions.md, section 3.3](docs/architecture_decisions.md#33-iac-discipline:-lesson-from-terradriftguard).
+
+These resources are bootstrap infrastructure.
+They must exist before the pipeline can authenticate to AWS.
+
+There is a circular dependency:
+- The pipeline needs the OIDC role to obtain AWS credentials.
+- If Terraform created the OIDC role, it would need AWS credentials to run.
+- In CI/CD, those credentials come from the OIDC role that does not exist yet.
+
+There are 2 possible approaches:
+- Managing the OIDC resources in a separate Terraform module, run locally before the first pipeline execution.
+- `terraform destroy` on the main project would not touch them.
+- They would be cleaned up separately after the project is complete.
+- Treating the OIDC setup as a one-time account-level prerequisite: 
+    - created via the CLI
+    - documented in the README
+    - cleaned up manually after the project
+
+The second approach is the industry standard for bootstrap resources that enable a pipeline.
+GoldenPipeline follows this convention.
+The cleanup steps are documented in section 11 (Teardown), see [section 11.](#11-teardown).
+
+
+### 7.1 One-time setup
+The trust policy file (`trust-policy.json`) is created first in the project root directory `GoldenPipeline/`.
+It defines which entity is allowed to assume the IAM role.
+The Federated field contains a placeholder `ACCOUNT_ID` instead of the actual account number.
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:fred1717/GoldenPipeline:*"
+        }
+      }
+    }
+  ]
+}
+```
+
+
+### 7.2 Retrieving the account number dynamically
+The account ID is then retrieved dynamically and substituted into the file.
+It is done using `sed`, a command-line utility to find and replace text within a file.
+This avoids hardcoding the account number anywhere in the repository.
+
+**From the project root directory `GoldenPipeline`**
+```bash
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+sed -i "s/ACCOUNT_ID/${ACCOUNT_ID}/" trust-policy.json
+```
+**Example output**
+`trust-policy.json` has now been updated with the correct account number, retrieved dynamically.
+
+
+
+### 7.3 Creating the IAM role, using the trust policy file `trust-policy.json`
+**From the project root directory `GoldenPipeline`, containing the trust policy file**
+```bash
+aws iam create-role --role-name GoldenPipeline-GitHubActions --assume-role-policy-document file://trust-policy.json
+```
+**Example output (API response displayed in the terminal)**
+The role itself is created in AWS IAM, not as a local file.
+```json
+{
+    "Role": {
+        "Path": "/",
+        "RoleName": "GoldenPipeline-GitHubActions",
+        "RoleId": "AROAST6S7NBOH43OZRFYM",
+        "Arn": "arn:aws:iam::180294215772:role/GoldenPipeline-GitHubActions",
+        "CreateDate": "2026-03-09T23:24:33+00:00",
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Federated": "arn:aws:iam::180294215772:oidc-provider/token.actions.githubusercontent.com"
+                    },
+                    "Action": "sts:AssumeRoleWithWebIdentity",
+                    "Condition": {
+                        "StringEquals": {
+                            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+                        },
+                        "StringLike": {
+                            "token.actions.githubusercontent.com:sub": "repo:fred1717/GoldenPipeline:*"
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}
+```
+
+
+### 7.4 Retrieving the role ARN dynamically and storing it as a GitHub Actions secret
+The role ARN is stored as a GitHub Actions secret named `AWS_ROLE_ARN` in the repository settings.
+A GitHub Actions secret is an encrypted value stored in the repository settings on GitHub.
+Workflows can reference it (as `${{ secrets.AWS_ROLE_ARN }}` in `ci-cd.yml`), but the value is never visible in logs or in the code.
+It is the standard mechanism for passing sensitive credentials to a pipeline without hardcoding them.
+
+For that to happen, the repository must already exist at this point (see section 13.1): [section 13.1](#131-repository-creation)
+
+**From the project root directory `GoldenPipeline`**
+```bash
+ROLE_ARN=$(aws iam get-role --role-name GoldenPipeline-GitHubActions --query Role.Arn --output text)
+
+gh secret set AWS_ROLE_ARN --body "${ROLE_ARN}"
+```
+**Example output**
+```text
+Set Actions secret AWS_ROLE_ARN for fred1717/GoldenPipeline
+```
+**Explanations**
+The secret is stored on GitHub in the GoldenPipeline repository, following this path::
+Settings > Security section > Secrets and variables > Actions: there is a new "repository secret" called `AWS_ROLE_ARN`.
+It is not visible on the main repository page.
+
+
+### 7.5 Getting the permissions to run the pipeline
+The pipeline role follows the least-privilege principle applied throughout the portfolio.
+Each permission is scoped to the exact actions the pipeline needs to execute.
+No `FullAccess` managed policies are used.
+Instead, a custom policy is created in `pipeline-permissions-policy.json`.
+It grants only the permissions required by the 5 pipeline stages:
+- Stage 1 (static analysis) requires no AWS permissions
+- Stage 2 (Packer build) requires:
+    - EC2 instance management
+    - AMI creation
+- Stage 3 (Terraform deploy) requires:
+    - VPC
+    - EC2
+    - IAM
+    - SSM endpoint provisioning
+- Stage 4 (validation) requires `SSM` command execution
+- Stage 5 (teardown) requires:
+    - the same provisioning permissions
+    - AMI deregistration
+    - snapshot deletion
+
+
+**Creating a custom IAM policy in the AWS account from the JSON file (command run from `GoldenPipeline`):**
+The policy exists in IAM but is not attached to any role yet.
+```bash
+ROLE_NAME="GoldenPipeline-GitHubActions"
+
+aws iam create-policy --policy-name GoldenPipeline-CICD --policy-document file://pipeline-permissions-policy.json
+```
+**Example output**
+```json
+{
+    "Policy": {
+        "PolicyName": "GoldenPipeline-CICD",
+        "PolicyId": "ANPAST6S7NBOLUTC7BBTI",
+        "Arn": "arn:aws:iam::180294215772:policy/GoldenPipeline-CICD",
+        "Path": "/",
+        "DefaultVersionId": "v1",
+        "AttachmentCount": 0,
+        "PermissionsBoundaryUsageCount": 0,
+        "IsAttachable": true,
+        "CreateDate": "2026-03-10T00:42:15+00:00",
+        "UpdateDate": "2026-03-10T00:42:15+00:00"
+    }
+}
+```
+
+**Retrieving the ARN of the newly created policy dynamically (from `GoldenPipeline`)**
+The ARN is needed to attach the policy to the role, and hardcoding it would violate best-practice policy.
+```bash
+POLICY_ARN=$(aws iam list-policies --query "Policies[?PolicyName=='GoldenPipeline-CICD'].Arn" --output text)
+```
+
+**Attaching the policy to the pipeline role**
+Only after this step does the role have the permissions defined in the JSON file.
+```bash
+aws iam attach-role-policy --role-name "${ROLE_NAME}" --policy-arn "${POLICY_ARN}"
+```
+
+**Verifying with:**
+```bash
+aws iam list-attached-role-policies --role-name GoldenPipeline-GitHubActions
+```
+**Expected output**
+```json
+{
+    "AttachedPolicies": [
+        {
+            "PolicyName": "GoldenPipeline-CICD",
+            "PolicyArn": "arn:aws:iam::180294215772:policy/GoldenPipeline-CICD"
+        }
+    ]
+}
+```
+**Explanation**
+The custom policy has been successfully attached to the role.
+
 This is consistent with the AWS-native security posture applied elsewhere in the portfolio:
 - Bedrock over direct API keys in TerraDriftGuard
 - `SSM` over `SSH` in GoldenPipeline
@@ -467,7 +678,12 @@ The evidence/ directory structure documents where each artifact is stored.
 
 
 
-## 11. Teardown — terraform destroy, AMI deregistration, EBS snapshot deletion
+## 11. Teardown
+This consists of:
+- `terraform destroy`
+- AMI deregistration
+- EBS snapshot deletion
+
 ### 11.1 Terraform destroy
 The teardown stage consists of the following steps:
 - `terraform destroy` is run from the terraform/ directory.
@@ -519,10 +735,10 @@ The final cost is compared against the previous projects:
 
 ## 13. GitHub — repository setup, commit history
 
-### 13.1 Repository creation - The `gh repo create` command and repository description.
-The command below will create a new repository called `GoldenPipeline` on GitHub.
+### 13.1 Repository creation
+It is using the `gh repo create` command to create a new repository called `GoldenPipeline`, and adding a description for it.
 
-**From the project root directory (GoldenPipeline/):**
+**From the project root directory, `GoldenPipeline/`:**
 ```bash
 gh repo create fred1717/GoldenPipeline --public --description "CIS-hardened golden AMI pipeline: Packer, Terraform, pytest validation via SSM, security-scanning CI/CD with tflint and checkov."
 ```
@@ -545,7 +761,7 @@ git remote add origin https://github.com/fred1717/GoldenPipeline.git
 git branch -M main
 ```
 
-**All files will then be staged, committed, and pushed (run from the project root directory `Goldenpipeline'):**
+**All files will then be staged, committed, and pushed (run from the project root directory `Goldenpipeline`):**
 ```bash
 git add .
 git commit -m "Initial commit: GoldenPipeline project structure"
@@ -554,6 +770,13 @@ git push -u origin main
 
 This step must also be completed before running `terraform destroy`.
 Once the code is safely in GitHub, nothing is lost when the infrastructure is torn down.
+
+**After the OIDC setup and custom policy creation are complete, the changes are committed and pushed (from the project root directory `Goldenpipeline`):**
+```bash
+git add .
+git commit -m "OIDC setup: trust policy, pipeline permissions policy, .gitignore updated"
+git push
+```
 
 
 ### 13.3 Post-deployment commits

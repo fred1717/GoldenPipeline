@@ -16,13 +16,16 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 permissions:
   id-token: write
   contents: read
 
 env:
-  AWS_REGION: eu-west-2
+  AWS_REGION: us-east-1
   PACKER_DIR: packer
   TERRAFORM_DIR: terraform
   PYTHON_VERSION: "3.12"
@@ -109,6 +112,7 @@ jobs:
       # named in the PACKER_MANIFEST environment variable.
 
       - name: "Stage 2: packer build"
+        if: github.event_name == 'push'
         id: packer_build
         run: |
           packer build .
@@ -121,16 +125,17 @@ jobs:
       # -------------------------------------------------
 
       - name: "Stage 3: terraform init"
+        if: github.event_name == 'push'
         run: terraform init
         working-directory: ${{ env.TERRAFORM_DIR }}
 
       - name: "Stage 3: terraform plan"
-        env:
-          AMI_ID: ${{ steps.packer_build.outputs.ami_id }}
-        run: terraform plan -var="ami_id=${AMI_ID}" -out=tfplan
+        if: github.event_name == 'push'
+        run: terraform plan -out=tfplan
         working-directory: ${{ env.TERRAFORM_DIR }}
 
       - name: "Stage 3: terraform apply"
+        if: github.event_name == 'push'
         run: terraform apply tfplan
         working-directory: ${{ env.TERRAFORM_DIR }}
 
@@ -139,6 +144,7 @@ jobs:
       # -------------------------------------------------
 
       - name: "Stage 4: CIS validation tests"
+        if: github.event_name == 'push'
         run: pytest tests/ -v
 
       # -------------------------------------------------
@@ -146,17 +152,15 @@ jobs:
       # -------------------------------------------------
 
       - name: "Stage 5: terraform destroy"
-        if: always()
-        env:
-          AMI_ID: ${{ steps.packer_build.outputs.ami_id }}
+        if: always() && github.event_name == 'push'
         run: |
           if [ -d ".terraform" ]; then
-            terraform destroy -auto-approve -var="ami_id=${AMI_ID}"
+            terraform destroy -auto-approve
           fi
         working-directory: ${{ env.TERRAFORM_DIR }}
 
       - name: "Stage 5: Deregister AMI and delete snapshot"
-        if: always()
+        if: always() && github.event_name == 'push'
         env:
           AMI_ID: ${{ steps.packer_build.outputs.ami_id }}
         run: |
