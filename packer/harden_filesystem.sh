@@ -57,7 +57,7 @@ fi
 PARTITIONS=$(df --local -P | awk 'NR!=1 {print $6}')
 
 for PARTITION in ${PARTITIONS}; do
-    find "${PARTITION}" -xdev -type f -perm -0002 -exec chmod o-w {} +
+    find "${PARTITION}" -xdev -type f -perm -0002 -exec chmod o-w {} + || true
 done
 
 # -------------------------------------------------
@@ -65,6 +65,6 @@ done
 # -------------------------------------------------
 
 for PARTITION in ${PARTITIONS}; do
-    find "${PARTITION}" -xdev -nouser -exec chown "${ROOT_OWNER}" {} +
-    find "${PARTITION}" -xdev -nogroup -exec chgrp "${ROOT_GROUP}" {} +
+    find "${PARTITION}" -xdev -nouser -exec chown "${ROOT_OWNER}" {} + || true
+    find "${PARTITION}" -xdev -nogroup -exec chgrp "${ROOT_GROUP}" {} + || true
 done

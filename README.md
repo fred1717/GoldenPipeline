@@ -762,6 +762,7 @@ git remote add origin https://github.com/fred1717/GoldenPipeline.git
 git branch -M main
 ```
 
+##### 13.2.1.1 First push
 **All files will then be staged, committed, and pushed (run from the project root directory `Goldenpipeline`):**
 ```bash
 git add .
@@ -772,6 +773,7 @@ git push -u origin main
 This step must also be completed before running `terraform destroy`.
 Once the code is safely in GitHub, nothing is lost when the infrastructure is torn down.
 
+##### 13.2.1.2 Second push
 **After the OIDC setup and custom policy creation are complete, the changes are committed and pushed (from the project root directory `Goldenpipeline`):**
 ```bash
 git add .
@@ -779,6 +781,7 @@ git commit -m "OIDC setup: trust policy, pipeline permissions policy, .gitignore
 git push
 ```
 
+##### 13.2.1.3 Third push
 **Third push after `tflint` error message (from root project folder)**
 All `main.tf` were missing the block indicating the Terraform version.
 The root `main.tf` also needed the `required_providers` block inside it.
@@ -788,6 +791,7 @@ git commit -m "Fix tflint: add required_version and required_providers"
 git push
 ```
 
+##### 13.2.1.4 Fourth push
 **Fourth push after renewed `tflint` error message (from root project folder)**
 After inserting the `required_providers` block at the top of each module `main.tf`:
 ```bash
@@ -796,6 +800,7 @@ git commit -m "Fix tflint: adding the 'required_providers' block at the top of e
 git push
 ```
 
+##### 13.2.1.5 Fifth push
 **Fifth push after "fixing" `checkov` error messages (from root project folder)**
 After amending a few module `main.tf`, see in 13.2.2:
 ```bash
@@ -804,6 +809,7 @@ git commit -m "Fix checkov: enforce IMDSv2, EBS optimisation, suppress justified
 git push
 ```
 
+##### 13.2.1.6 Sixth push
 **Sixth push after creating a default VPC, see in 13.2.2 (from root project folder)**
 ```bash
 git add .
@@ -811,6 +817,7 @@ git commit -m "Add default VPC as Packer build prerequisite"
 git push
 ```
 
+##### 13.2.1.7 Seventh push
 **Seventh push after updating `pipeline-permissions-policy.json`, see in 13.2.2 (from root project folder)**
 ```bash
 git add .
@@ -818,7 +825,16 @@ git commit -m "Fix: replace em dash in SG description, also add RevokeSecurityGr
 git push
 ```
 
+##### 13.2.1.8 Eighth push
 **Eighth push after updating again `pipeline-permissions-policy.json`, see in 13.2.2 (from root project folder)**
+```bash
+git add .
+git commit -m "Fix: add AuthorizeSecurityGroupEgress to pipeline policy"
+git push
+```
+
+##### 13.2.1.9 Ninth push
+**Ninth push after updating `packer/harden_filesystem.sh`, see in 13.2.2 (from root project folder)**
 ```bash
 git add .
 git commit -m "Fix: add AuthorizeSecurityGroupEgress to pipeline policy"
@@ -829,14 +845,15 @@ git push
 
 
 
-
 #### 13.2.2 Debugging steps
-**First pipeline run (initial commit)**
+##### 13.2.2.1 First pipeline run
+**Initial commit**
 The first push triggered the pipeline.
 It failed at the "Configure AWS credentials via OIDC" step.
 This was expected: the OIDC provider and IAM role did not exist yet at that point.
 
-**Second pipeline run (OIDC setup commit)**
+##### 13.2.2.2 Second pipeline run
+**OIDC setup commit**
 The second push triggered the pipeline after the OIDC setup was complete.
 The OIDC authentication succeeded.
 The pipeline progressed to Stage 1 (static analysis) and failed at `tflint`.
@@ -850,12 +867,14 @@ Each module `main.tf` was amended with a terraform block containing `required_ve
 The `required_providers` block is only needed at the root level.
 That was at least the conclusion drawn here, which unfortunately proved to be wrong (see next debugging step).
 
-**Debugging steps after third push (`tflint` fix, from root project folder)**
+##### 13.2.2.3 Debugging steps after third push
 Listing the most recent pipeline run and returning 4 fields:
 - the run ID
 - whether it succeeded or failed
 - the workflow name
 - when it was triggered
+
+**`tflint` fix (from root project folder)**
 ```bash
 gh run list --limit 1 --json databaseId,conclusion,name,createdAt
 ```
@@ -870,7 +889,6 @@ gh run list --limit 1 --json databaseId,conclusion,name,createdAt
   }
 ]
 ```
-
 **Retrieving the log output of the failed step only (from root project folder)**
 ```bash
 gh run view 22907781148 --log-failed
@@ -891,6 +909,9 @@ terraform {
   }
 }
 ```
+
+##### 13.2.2.4 Debugging steps after the fourth push
+After running the same debugging commands, the verdict was the following:
 `tflint` passed but `checkov` flagged 6 issues.
 The 6 issues fall into 2 categories:
 **Issues to fix (genuine security best practice):**
@@ -934,6 +955,7 @@ For example, in `modules/ec2/main.tf`:
 # checkov:skip=CKV_AWS_126:Detailed monitoring not justified for ephemeral test instance
 ```
 
+##### 13.2.2.5 Debugging steps after the fifth push
 **Checking the fifth push after renewed error messages (same command as before, from the root project folder)**
 ```bash
 gh run list --limit 1 --json databaseId,conclusion,name,createdAt
@@ -1010,7 +1032,8 @@ This is not project infrastructure.
 It is an account-level prerequisite, in the same category as the OIDC provider.
 It is not managed by Terraform and is not destroyed with the project.
 
-**Checking the sixth push after several minutes that everything went well**
+##### 13.2.2.6 Debugging steps after the sixth push
+**Checking the sixth push after several minutes (from the project root folder)**
 ```bash
 gh run list --limit 1 --json databaseId,conclusion,name,createdAt
 ```
@@ -1064,7 +1087,8 @@ aws iam create-policy-version --policy-arn "${POLICY_ARN}" --policy-document fil
 }
 ```
 
-**Checking the seventh push after several minutes that everything went well, see in 13.2.1 (from root project folder)**
+##### 13.2.2.7 Debugging steps after the seventh push
+**Checking the seventh push after several minutes, see in 13.2.1 (from root project folder)**
 ```bash
 gh run list --limit 1 --json databaseId,conclusion,name,createdAt
 ```
@@ -1107,19 +1131,34 @@ aws iam create-policy-version --policy-arn "${POLICY_ARN}" --policy-document fil
 }
 ```
 
-**Checking the eighth push after several minutes that everything went well, see in 13.2.1 (from root project folder)**
+##### 13.2.2.8 Debugging steps after the eighth push
+**Checking the eighth push after several minutes, see in 13.2.1 (from root project folder)**
 ```bash
 gh run list --limit 1 --json databaseId,conclusion,name,createdAt
 ```
 ```json
-
+[
+  {
+    "conclusion": "failure",
+    "createdAt": "2026-03-10T19:41:43Z",
+    "databaseId": 22921048691,
+    "name": "GoldenPipeline CI/CD"
+  }
+]
 ```
 **For the eighth time, retrieving the log output of the failed step only (from root project folder)**
 ```bash
-gh run view  --log-failed
+gh run view 22921048691 --log-failed
 ```
 **Verdict**
-
+The failure is in `harden_filesystem.sh`, during the world-writable files or unowned files scan.  
+The `find` command encounters a Docker overlay2 directory that no longer exists (a transient mount point). 
+AS the script uses `set -euo pipefail`, the non-zero exit from `find` aborts the entire script.
+The base Amazon Linux 2023 AMI includes Docker, and its overlay filesystem creates ephemeral paths that `find` cannot traverse.
+The fix is in `harden_filesystem.sh`. 
+The `find` commands that scan partitions need `|| true` appended to prevent `set -e` from aborting when `find` encounters an inaccessible path.
+There are 4 `find` commands inside the partition loops. 
+Each one needs `|| true` at the end:
 
 
 
