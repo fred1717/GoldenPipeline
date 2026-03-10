@@ -811,6 +811,19 @@ git commit -m "Add default VPC as Packer build prerequisite"
 git push
 ```
 
+**Seventh push after updating `pipeline-permissions-policy.json`, see in 13.2.2 (from root project folder)**
+```bash
+git add .
+git commit -m "Fix: replace em dash in SG description, also add RevokeSecurityGroupEgress to pipeline policy"
+git push
+```
+
+**Eighth push after updating again `pipeline-permissions-policy.json`, see in 13.2.2 (from root project folder)**
+```bash
+git add .
+git commit -m "Fix: add AuthorizeSecurityGroupEgress to pipeline policy"
+git push
+```
 
 
 
@@ -1051,37 +1064,65 @@ aws iam create-policy-version --policy-arn "${POLICY_ARN}" --policy-document fil
 }
 ```
 
-**Seventh push (from root project folder)**
-```bash
-git add .
-git commit -m "Fix: replace em dash in SG description, also add RevokeSecurityGroupEgress to pipeline policy"
-git push
-```
-**Checking the seventh push after several minutes that everything went well**
+**Checking the seventh push after several minutes that everything went well, see in 13.2.1 (from root project folder)**
 ```bash
 gh run list --limit 1 --json databaseId,conclusion,name,createdAt
 ```
 ```json
 [
   {
-    "conclusion": "failure",
-    "createdAt": "2026-03-10T18:08:04Z",
-    "databaseId": 22917224601,
+    "conclusion": "",
+    "createdAt": "2026-03-10T19:11:40Z",
+    "databaseId": 22919851370,
     "name": "GoldenPipeline CI/CD"
   }
 ]
 ```
-**For the sixth time, retrieving the log output of the failed step only (from root project folder)**
+**For the seventh time, retrieving the log output of the failed step only (from root project folder)**
 ```bash
-gh run view 22917224601 --log-failed
+gh run view 22919851370 --log-failed
 ```
 **Verdict**
-The actual problem is that the `ec2:RevokeSecurityGroupEgress` permission was not added to the IAM policy. 
-The code was pushed, but the policy in AWS was not updated.
+A permission is missing:  
+`ec2:RevokeSecurityGroupEgress` passed but `ec2:AuthorizeSecurityGroupEgress` is blocked.
+Terraform first revokes the default egress rule, then authorises the custom egress rule. 
+Both actions need permission.
+In `pipeline-permissions-policy.json`, inside the `TerraformVPC statement`, after `ec2:RevokeSecurityGroupEgress`:
+ **Insertion of `ec2:AuthorizeSecurityGroupEgress`**
 
-2 steps are needed:
-- Update `pipeline-permissions-policy.json` locally. 
-    In the TerraformVPC statement, after "ec2:ModifyVpcEndpoint", add "ec2:RevokeSecurityGroupEgress".
+ **Updating again the policy**
+```bash
+POLICY_ARN=$(aws iam list-policies --query "Policies[?PolicyName=='GoldenPipeline-CICD'].Arn" --output text)
+
+aws iam create-policy-version --policy-arn "${POLICY_ARN}" --policy-document file://pipeline-permissions-policy.json --set-as-default
+```
+**Example output**
+```bash
+{
+    "PolicyVersion": {
+        "VersionId": "v3",
+        "IsDefaultVersion": true,
+        "CreateDate": "2026-03-10T19:33:19+00:00"
+    }
+}
+```
+
+**Checking the eighth push after several minutes that everything went well, see in 13.2.1 (from root project folder)**
+```bash
+gh run list --limit 1 --json databaseId,conclusion,name,createdAt
+```
+```json
+
+```
+**For the eighth time, retrieving the log output of the failed step only (from root project folder)**
+```bash
+gh run view  --log-failed
+```
+**Verdict**
+
+
+
+
 
 
 
