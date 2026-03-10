@@ -30,7 +30,8 @@
         "ec2:DescribeVpcAttribute",
         "ec2:DescribePrefixLists",
         "ec2:DescribeNetworkAcls",
-        "ec2:DescribeDhcpOptions"
+        "ec2:DescribeDhcpOptions",
+        "ec2:DescribeInstanceTypes"
       ],
       "Resource": "*"
     },

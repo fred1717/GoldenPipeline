@@ -774,7 +774,7 @@ This step must also be completed before running `terraform destroy`.
 Once the code is safely in GitHub, nothing is lost when the infrastructure is torn down.
 
 ##### 13.2.1.2 Second push
-**After the OIDC setup and custom policy creation are complete, the changes are committed and pushed (from the project root directory `Goldenpipeline`):**
+**After the OIDC setup and custom policy creation are complete, the changes are committed and pushed, see in 13.2.2.1 (from the project root directory `Goldenpipeline`):**
 ```bash
 git add .
 git commit -m "OIDC setup: trust policy, pipeline permissions policy, .gitignore updated"
@@ -782,7 +782,7 @@ git push
 ```
 
 ##### 13.2.1.3 Third push
-**Third push after `tflint` error message (from root project folder)**
+**Third push after `tflint` error message, see in 13.2.2.2 (from root project folder)**
 All `main.tf` were missing the block indicating the Terraform version.
 The root `main.tf` also needed the `required_providers` block inside it.
 ```bash
@@ -792,7 +792,7 @@ git push
 ```
 
 ##### 13.2.1.4 Fourth push
-**Fourth push after renewed `tflint` error message (from root project folder)**
+**Fourth push after renewed `tflint` error message, see in 13.2.2.3 (from root project folder)**
 After inserting the `required_providers` block at the top of each module `main.tf`:
 ```bash
 git add .
@@ -801,7 +801,7 @@ git push
 ```
 
 ##### 13.2.1.5 Fifth push
-**Fifth push after "fixing" `checkov` error messages (from root project folder)**
+**Fifth push after "fixing" `checkov` error messages, see in 13.2.2.4 (from root project folder)**
 After amending a few module `main.tf`, see in 13.2.2:
 ```bash
 git add .
@@ -810,7 +810,7 @@ git push
 ```
 
 ##### 13.2.1.6 Sixth push
-**Sixth push after creating a default VPC, see in 13.2.2 (from root project folder)**
+**Sixth push after creating a default VPC, see in 13.2.2.5 (from root project folder)**
 ```bash
 git add .
 git commit -m "Add default VPC as Packer build prerequisite"
@@ -818,7 +818,7 @@ git push
 ```
 
 ##### 13.2.1.7 Seventh push
-**Seventh push after updating `pipeline-permissions-policy.json`, see in 13.2.2 (from root project folder)**
+**Seventh push after updating `pipeline-permissions-policy.json`, see in 13.2.2.6 (from root project folder)**
 ```bash
 git add .
 git commit -m "Fix: replace em dash in SG description, also add RevokeSecurityGroupEgress to pipeline policy"
@@ -826,7 +826,7 @@ git push
 ```
 
 ##### 13.2.1.8 Eighth push
-**Eighth push after updating again `pipeline-permissions-policy.json`, see in 13.2.2 (from root project folder)**
+**Eighth push after updating again `pipeline-permissions-policy.json`, see in 13.2.2.7 (from root project folder)**
 ```bash
 git add .
 git commit -m "Fix: add AuthorizeSecurityGroupEgress to pipeline policy"
@@ -834,26 +834,33 @@ git push
 ```
 
 ##### 13.2.1.9 Ninth push
-**Ninth push after updating `packer/harden_filesystem.sh`, see in 13.2.2 (from root project folder)**
+**Ninth push after updating `packer/harden_filesystem.sh`, see in 13.2.2.8 (from root project folder)**
 ```bash
 git add .
-git commit -m "Fix: add AuthorizeSecurityGroupEgress to pipeline policy"
+git commit -m "Fix: handle inaccessible paths in harden_filesystem.sh find commands"
+git push
+```
+
+##### 13.2.1.10 Tenth push after updating again `pipeline-permissions-policy.json` by adding the `ec2:DescribeInstanceTypes` permission, see in 13.2.9 (from root project folder)**
+**Tenth push after updating `packer/harden_filesystem.sh`, see in 13.2.2.9 (from root project folder)**
+```bash
+git add .
+git commit -m "Fix: add DescribeInstanceTypes to pipeline policy"
 git push
 ```
 
 
 
 
-
 #### 13.2.2 Debugging steps
 ##### 13.2.2.1 First pipeline run
-**Initial commit**
+**Initial commit, see in 13.2.1.1**
 The first push triggered the pipeline.
 It failed at the "Configure AWS credentials via OIDC" step.
 This was expected: the OIDC provider and IAM role did not exist yet at that point.
 
 ##### 13.2.2.2 Second pipeline run
-**OIDC setup commit**
+**OIDC setup commit, see in 13.2.1.2**
 The second push triggered the pipeline after the OIDC setup was complete.
 The OIDC authentication succeeded.
 The pipeline progressed to Stage 1 (static analysis) and failed at `tflint`.
@@ -867,7 +874,7 @@ Each module `main.tf` was amended with a terraform block containing `required_ve
 The `required_providers` block is only needed at the root level.
 That was at least the conclusion drawn here, which unfortunately proved to be wrong (see next debugging step).
 
-##### 13.2.2.3 Debugging steps after third push
+##### 13.2.2.3 Debugging steps after third push (see in 13.2.1.3)
 Listing the most recent pipeline run and returning 4 fields:
 - the run ID
 - whether it succeeded or failed
@@ -913,6 +920,7 @@ terraform {
 ##### 13.2.2.4 Debugging steps after the fourth push
 After running the same debugging commands, the verdict was the following:
 `tflint` passed but `checkov` flagged 6 issues.
+
 The 6 issues fall into 2 categories:
 **Issues to fix (genuine security best practice):**
 - **CKV_AWS_79** — Instance Metadata Service v1 is not disabled.
@@ -956,7 +964,7 @@ For example, in `modules/ec2/main.tf`:
 ```
 
 ##### 13.2.2.5 Debugging steps after the fifth push
-**Checking the fifth push after renewed error messages (same command as before, from the root project folder)**
+**Checking the fifth push after renewed error messages, see in 13.2.1.5 (same command as before, from the root project folder)**
 ```bash
 gh run list --limit 1 --json databaseId,conclusion,name,createdAt
 ```
@@ -1033,7 +1041,7 @@ It is an account-level prerequisite, in the same category as the OIDC provider.
 It is not managed by Terraform and is not destroyed with the project.
 
 ##### 13.2.2.6 Debugging steps after the sixth push
-**Checking the sixth push after several minutes (from the project root folder)**
+**Checking the sixth push after several minutes, see in 13.2.1.6 (from the project root folder)**
 ```bash
 gh run list --limit 1 --json databaseId,conclusion,name,createdAt
 ```
@@ -1088,7 +1096,7 @@ aws iam create-policy-version --policy-arn "${POLICY_ARN}" --policy-document fil
 ```
 
 ##### 13.2.2.7 Debugging steps after the seventh push
-**Checking the seventh push after several minutes, see in 13.2.1 (from root project folder)**
+**Checking the seventh push after several minutes, see in 13.2.1.7 (from root project folder)**
 ```bash
 gh run list --limit 1 --json databaseId,conclusion,name,createdAt
 ```
@@ -1132,7 +1140,7 @@ aws iam create-policy-version --policy-arn "${POLICY_ARN}" --policy-document fil
 ```
 
 ##### 13.2.2.8 Debugging steps after the eighth push
-**Checking the eighth push after several minutes, see in 13.2.1 (from root project folder)**
+**Checking the eighth push after several minutes, see in 13.2.1.8 (from root project folder)**
 ```bash
 gh run list --limit 1 --json databaseId,conclusion,name,createdAt
 ```
@@ -1160,6 +1168,35 @@ The `find` commands that scan partitions need `|| true` appended to prevent `set
 There are 4 `find` commands inside the partition loops. 
 Each one needs `|| true` at the end:
 
+##### 13.2.2.9 Debugging steps after the ninth push
+**Checking the ninth push after several minutes, see in 13.2.1.9 (from root project folder)**
+```bash
+gh run list --limit 1 --json databaseId,conclusion,name,createdAt
+```
+```json
+[
+  {
+    "conclusion": "failure",
+    "createdAt": "2026-03-10T20:09:39Z",
+    "databaseId": 22922119091,
+    "name": "GoldenPipeline CI/CD"
+  }
+]
+```
+**For the ninth time, retrieving the log output of the failed step only (from root project folder)**
+```bash
+gh run view 22922119091 --log-failed
+```
+**Verdict**
+There are some good news: Stages 1 through 4 all passed. 
+The pipeline failed only at Stage 5 (teardown).
+
+There is still one permission missing: `ec2:DescribeInstanceTypes`. 
+**Amending `pipeline-permissions-policy.json`**
+Inside the `PackerBuildEC2` statement, after `ec2:DescribeDhcpOptions`:
+```json
+"ec2:DescribeInstanceTypes"
+```
 
 
 
