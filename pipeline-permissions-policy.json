@@ -92,7 +92,8 @@
         "ec2:DisassociateRouteTable",
         "ec2:CreateVpcEndpoint",
         "ec2:DeleteVpcEndpoints",
-        "ec2:ModifyVpcEndpoint"
+        "ec2:ModifyVpcEndpoint",
+        "ec2:RevokeSecurityGroupEgress"
       ],
       "Resource": "*"
     },

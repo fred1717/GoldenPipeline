@@ -960,7 +960,7 @@ There are 2 options:
 For these reasons the first option is preferable.
 **From any directory:**
 ```bash
-aws ec2 create-default-vpc-us-east-1
+aws ec2 create-default-vpc
 ```
 **Example output**
 ```json
@@ -993,14 +993,77 @@ VPC_ID=$(aws ec2 describe-vpcs --filters "Name=isDefault,Values=true" --query "V
 
 aws ec2 create-tags --resources "${VPC_ID}" --tags Key=Name,Value=default-vpc-us-east-1
 ```
-
 This is not project infrastructure.
 It is an account-level prerequisite, in the same category as the OIDC provider.
 It is not managed by Terraform and is not destroyed with the project.
 
+**Checking the sixth push after several minutes that everything went well**
+```bash
+gh run list --limit 1 --json databaseId,conclusion,name,createdAt
+```
+**Example output**
+```json
+[
+  {
+    "conclusion": "failure",
+    "createdAt": "2026-03-10T17:38:55Z",
+    "databaseId": 22916010167,
+    "name": "GoldenPipeline CI/CD"
+  }
+]
+```
+**For the sixth time, retrieving the log output of the failed step only (from root project folder)**
+```bash
+gh run view 22916010167 --log-failed
+```
+**Verdict**
+Stage 1 and Stage 2 both passed. 
+The Packer build succeeded. 
+The pipeline failed at Stage 3 (`Terraform apply`) with 2 errors:
+- Error 1: Non-ASCII character in security group description.
+    The description in modules/security_group/main.tf contains an em dash (—):
+    "Security group for the test EC2 instance — no inbound, HTTPS to VPC only"
+    AWS rejects non-ASCII characters in security group descriptions.
+    The em dash needs replacing with a regular dash (-).
+- Error 2: Missing IAM permission.
+    The pipeline role is missing `ec2:RevokeSecurityGroupEgress`.
+    Terraform automatically revokes the default egress rule on security groups before applying custom rules.
+    This action was not included in `pipeline-permissions-policy.json`.
+
+**Fixing both errors**
+The em dash in `modules/security_group/main.tf` is replaced with a regular dash.
+The missing `ec2:RevokeSecurityGroupEgress` action is added to `pipeline-permissions-policy.json` under the `PackerTemporarySecurityGroup` statement.
+
+**The updated policy is applied from any directory:**
+```bash
+POLICY_ARN=$(aws iam list-policies --query "Policies[?PolicyName=='GoldenPipeline-CICD'].Arn" --output text)
+
+aws iam create-policy-version --policy-arn "${POLICY_ARN}" --policy-document file://pipeline-permissions-policy.json --set-as-default
+```
+
+**Seventh push (from root project folder)**
+```bash
+git add .
+git commit -m "Fix: replace em dash in SG description, add RevokeSecurityGroupEgress to pipeline policy"
+git push
+```
+
+
+
+
+
+
+
+
 
 ### 13.3 Post-deployment commits
 Placeholder. Content depends on what changes are made after deployment (README updates, evidence, diagram).
+
+
+
+
+
+
 
 
 ### 13.4 Release - The `gh release create` command.
