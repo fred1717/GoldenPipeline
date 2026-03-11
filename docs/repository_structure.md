@@ -46,6 +46,7 @@ GoldenPipeline/
         main.tf
         outputs.tf
         terraform.tfvars.example
+        tfplan
         variables.tf
 
 

@@ -615,29 +615,56 @@ The following are verified before any deployment begins:
     - an empty Errors array means the activation succeeded. 
     - The 24-hour propagation clock has started.
 
-- **verifying that the activation has propagated**
-    The following command needs to be run from any directory: 
-    ```bash
-    aws ce list-cost-allocation-tags --tag-keys Project --status Active
-    ```
-    **Example output**
-    ```json
-    aws ce list-cost-allocation-tags --tag-keys Project --status Active
+#### 10.1.1 Verifying that the activation has propagated
+
+**The following command needs to be run from any directory**
+```bash
+aws ce list-cost-allocation-tags --tag-keys Project --status Active
+```
+**Example output**
+```json
+aws ce list-cost-allocation-tags --tag-keys Project --status Active
+{
+    "CostAllocationTags": [
+        {
+            "TagKey": "Project",
+            "Type": "UserDefined",
+            "Status": "Active",
+            "LastUpdatedDate": "2026-03-04T14:55:32Z",
+            "LastUsedDate": "2026-03-01T00:00:00Z"
+        }
+    ]
+}
+```
+**Explanation**
+If the tag appears with `Status: Active`, it has propagated.  
+That is the case and actually, has been the case for the last 5 days.
+
+#### 10.1.2 Verifying AWS credentials
+
+**The following command needs to be run from any directory**
+```bash
+    aws sts get-caller-identity
+```
+**Example output**
+```json
     {
-        "CostAllocationTags": [
-            {
-                "TagKey": "Project",
-                "Type": "UserDefined",
-                "Status": "Active",
-                "LastUpdatedDate": "2026-03-04T14:55:32Z",
-                "LastUsedDate": "2026-03-01T00:00:00Z"
-            }
-        ]
+        "UserId": "AIDAST6S7NBOL4K6MNLDK",
+        "Account": "1802********",
+        "Arn": "arn:aws:iam::1802********:user/Malik"
     }
-    ```
-    **Explanation**
-    If the tag appears with `Status: Active`, it has propagated.  
-    That is the case and actually, has been the case for the last 5 days.
+```
+
+#### 10.1.3 Verifying the region
+
+**The following command needs to be run from any directory**
+```bash
+    aws configure get region
+```
+**Example output**
+```text
+    us-east-1
+```
 
 
 ### 10.2 Packer build
@@ -645,6 +672,60 @@ The following steps are performed from the `packer/` directory:
 - execution of `packer init` and `packer build`.
 - The AMI ID is captured from the manifest output.
 - The AMI is verified in the AWS Console with the correct tags.
+
+#### 10.2.1 Installing Packer
+
+**Installing Packer from HashiCorp's official repository (from any directory)**
+The `snap` package is outdated (version 1.0.0) and does not support HCL2 templates or the `init` command.
+```bash
+packer version
+```
+**Example output**
+```text
+Packer v1.15.0
+```
+
+**From the `packer/` directory:**
+```bash
+packer init .
+```
+**Example output**
+```text
+Installed plugin github.com/hashicorp/amazon v1.8.0
+```
+```bash
+packer build .
+```
+**Example output (last line)**
+```text
+us-east-1: ami-0538467753044ac7c
+```
+
+#### 10.2.12 Verifying the AMI with correct tags
+
+**from any directory**
+```bash
+aws ec2 describe-images --owners self --filters "Name=tag:Project,Values=GoldenPipeline" --query "Images[*].[Name,ImageId,Tags]" --output json
+```
+**Example output**
+```json
+[
+    [
+        "goldenpipeline-cis-1773222667",
+        "ami-0538467753044ac7c",
+        [
+            {
+                "Key": "Name",
+                "Value": "goldenpipeline-cis-1773222667"
+            },
+            {
+                "Key": "Project",
+                "Value": "GoldenPipeline"
+            }
+        ]
+    ]
+]
+```
 
 
 ### 10.3 Terraform deployment
@@ -658,6 +739,63 @@ The following steps are performed from the `packer/` directory:
 - The `terraform state` list output is captured for resource count.
 
 
+#### 10.3.1 Initialising (from the `terraform/` directory)
+```bash
+terraform init
+```
+**Example output**
+```text
+Terraform has been successfully initialized!
+```
+
+#### 10.3.2 Saving the generated plan to a binary file called `tfplan` (from the `terraform/` directory)
+```bash
+terraform plan -out=tfplan
+```
+
+#### 10.3.3 Guaranteeing that the plan reviewed is exactly what gets applied (from the `terraform/` directory)
+```bash
+terraform apply tfplan
+```
+**Example output**
+```text
+Apply complete! Resources: 11 added, 0 changed, 0 destroyed.
+Outputs:
+instance_id = "i-04ce214d77adbe278"
+```
+
+#### 10.3.4 Verifying the resource count (from the `terraform/` directory)
+```bash
+terraform state list
+```
+```text
+data.aws_ami.golden
+module.ec2.aws_instance.this
+module.iam.aws_iam_instance_profile.this
+module.iam.aws_iam_role.this
+module.iam.aws_iam_role_policy_attachment.ssm
+module.security_group.aws_security_group.this
+module.vpc.data.aws_region.current
+module.vpc.aws_security_group.vpce
+module.vpc.aws_subnet.this
+module.vpc.aws_vpc.this
+module.vpc.aws_vpc_endpoint.ec2messages
+module.vpc.aws_vpc_endpoint.ssm
+module.vpc.aws_vpc_endpoint.ssmmessages
+```
+
+#### 10.3.5 Verifying that the test instance was launched from the baked AMI (from the `terraform/` directory)
+```bash
+INSTANCE_ID=$(terraform output -raw instance_id)
+
+aws ec2 describe-instances --instance-ids "${INSTANCE_ID}" --query "Reservations[0].Instances[0].[Tags[?Key=='Name']|[0].Value,ImageId,State.Name]" --output text
+```
+**Example output**
+```text
+GoldenPipeline-test-instance    ami-0538467753044ac7c   running
+```
+
+
 ### 10.4 `SSM` connectivity
 The test instance is verified as reachable via `SSM` Session Manager.
 This confirms that the following are wired correctly:
@@ -665,16 +803,109 @@ This confirms that the following are wired correctly:
 - security group
 - IAM role
 
+**Verifying SSM readiness (from the `terraform/` directory):**
+```bash
+INSTANCE_ID=$(terraform output -raw instance_id)
+
+aws ssm describe-instance-information --filters "Key=InstanceIds,Values=${INSTANCE_ID}" --query "InstanceInformationList[0].PingStatus" --output text
+```
+**Example output**
+```text
+Online
+```
+The instance is reachable via SSM Session Manager.
+
 
 ### 10.5 CIS validation
 The validation stage consists of the following steps:
 - `pytest` is run against the running instance from the repository root.
 - Test results are captured as evidence.
 
+**Running the full CIS validation test suite against the running test instance (from the project root folder `GoldenPipeline)`**
+```bash
+pytest tests/ -v
+```
+**Example output**
+```text
+configfile: pytest.ini
+collected 39 items                                                                                                                                                                
+
+tests/test_cis_audit.py::TestAuditdService::test_auditd_installed PASSED                                                                                                    [  2%]
+tests/test_cis_audit.py::TestAuditdService::test_auditd_enabled PASSED                                                                                                      [  5%]
+tests/test_cis_audit.py::TestAuditdService::test_auditd_active PASSED                                                                                                       [  7%]
+tests/test_cis_audit.py::TestIdentityFileRules::test_identity_files_monitored PASSED                                                                                        [ 10%]
+tests/test_cis_audit.py::TestAuditConfigRules::test_audit_config_monitored PASSED                                                                                           [ 12%]
+tests/test_cis_audit.py::TestLoginLogoutRules::test_login_events_monitored PASSED                                                                                           [ 15%]
+tests/test_cis_audit.py::TestAccessControlRules::test_permission_changes_monitored PASSED                                                                                   [ 17%]
+tests/test_cis_audit.py::TestPrivilegedCommandRules::test_sudo_monitored PASSED                                                                                             [ 20%]
+tests/test_cis_filesystem.py::TestFileOwnership::test_passwd_ownership PASSED                                                                                               [ 23%]
+tests/test_cis_filesystem.py::TestFileOwnership::test_shadow_ownership PASSED                                                                                               [ 25%]
+tests/test_cis_filesystem.py::TestFileOwnership::test_group_ownership PASSED                                                                                                [ 28%]
+tests/test_cis_filesystem.py::TestFileOwnership::test_gshadow_ownership PASSED                                                                                              [ 30%]
+tests/test_cis_filesystem.py::TestFilePermissions::test_passwd_permissions PASSED                                                                                           [ 33%]
+tests/test_cis_filesystem.py::TestFilePermissions::test_shadow_permissions PASSED                                                                                           [ 35%]
+tests/test_cis_filesystem.py::TestFilePermissions::test_group_permissions PASSED                                                                                            [ 38%]
+tests/test_cis_filesystem.py::TestFilePermissions::test_gshadow_permissions PASSED                                                                                          [ 41%]
+tests/test_cis_filesystem.py::TestBootloaderPermissions::test_grub_config_ownership PASSED                                                                                  [ 43%]
+tests/test_cis_filesystem.py::TestBootloaderPermissions::test_grub_config_permissions PASSED                                                                                [ 46%]
+tests/test_cis_filesystem.py::TestWorldWritableFiles::test_no_world_writable_files PASSED                                                                                   [ 48%]
+tests/test_cis_filesystem.py::TestUnownedFiles::test_no_unowned_files PASSED                                                                                                [ 51%]
+tests/test_cis_filesystem.py::TestUnownedFiles::test_no_ungrouped_files PASSED                                                                                              [ 53%]
+tests/test_cis_services.py::TestDisabledServices::test_services_masked PASSED                                                                                               [ 56%]
+tests/test_cis_services.py::TestDisabledServices::test_services_not_active PASSED                                                                                           [ 58%]
+tests/test_cis_services.py::TestTimeSynchronisation::test_chronyd_enabled PASSED                                                                                            [ 61%]
+tests/test_cis_services.py::TestTimeSynchronisation::test_chronyd_active PASSED                                                                                             [ 64%]
+tests/test_cis_ssh.py::test_root_login_disabled PASSED                                                                                                                      [ 66%]
+tests/test_cis_ssh.py::test_password_authentication_disabled PASSED                                                                                                         [ 69%]
+tests/test_cis_ssh.py::test_empty_passwords_disabled PASSED                                                                                                                 [ 71%]
+tests/test_cis_ssh.py::test_x11_forwarding_disabled PASSED                                                                                                                  [ 74%]
+tests/test_cis_ssh.py::test_max_auth_tries_restricted PASSED                                                                                                                [ 76%]
+tests/test_cis_ssh.py::test_permitted_ciphers PASSED                                                                                                                        [ 79%]
+tests/test_cis_ssh.py::test_permitted_macs PASSED                                                                                                                           [ 82%]
+tests/test_cis_ssh.py::test_permitted_kex_algorithms PASSED                                                                                                                 [ 84%]
+tests/test_cis_ssh.py::test_sshd_config_ownership PASSED                                                                                                                    [ 87%]
+tests/test_cis_ssh.py::test_sshd_config_permissions PASSED                                                                                                                  [ 89%]
+tests/test_cis_updates.py::test_dnf_automatic_installed PASSED                                                                                                              [ 92%]
+tests/test_cis_updates.py::test_dnf_automatic_timer_enabled PASSED                                                                                                          [ 94%]
+tests/test_cis_updates.py::test_dnf_automatic_timer_active PASSED                                                                                                           [ 97%]
+tests/test_cis_updates.py::test_dnf_automatic_security_only PASSED                                                                                                          [100%]
+
+========================================================================= 39 passed in 234.55s (0:03:54) ==========================================================================
+```
+**Explanation**
+Each test sends a shell command to the instance via `SSM` to verify that the hardening configuration was applied correctly.
+The `-v` flag produces verbose output, showing each individual test result.
+All 39 tests passed and the full output is already captured as evidence.
+
 
 ### 10.6 Evidence capture
-Screenshots and CLI output collected at each stage are listed here.
-The evidence/ directory structure documents where each artifact is stored.
+The evidence was captured inline throughout the deployment sections:
+
+#### 10.6.1 Evidence collected in subsection 10.2 (Packer build)
+See in [section 10.2](#102-packer-build).
+The evidence consists of:
+ - AMI ID
+ - Packer build output
+ - AMI tag verification
+
+#### 10.6.2 Evidence collected in subsection 10.3 (Terraform deployment)
+See in [section 10.3](#103-terraform-deployment).
+The evidence consists of:
+ - `terraform apply` output
+ - resource count
+ - instance verification
+
+#### 10.6.3 Evidence collected in subsection 10.4 (SSM connectivity)
+See in [section 10.4](#104-ssm-connectivity).
+The evidence consists of:
+`SSM` connectivity confirmation
+
+#### 10.6.4 Evidence collected in subsection 10.5 (CIS validation)
+See in [section 10.5](#105-cis-validation).
+The evidence consists of:
+The full `pytest` output with 39 passed tests
+
+All evidence is CLI output, which is verifiable and reproducible.
 
 
 
@@ -690,16 +921,58 @@ The teardown stage consists of the following steps:
 - The output is captured as evidence.
 - The resource count is verified against the count from section 10.3.
 
+**From the `terraform/` directory:**
+```bash
+terraform destroy -auto-approve
+```
+**Example output**
+```text
+Destroy complete! Resources: 11 destroyed.
+```
+**Explanation**
+The 11 resources destroyed matches the 11 created in section 10.3.
+
 
 ### 11.2 AMI deregistration
 The baked AMI is deregistered via the AWS CLI.
+Without this step, baked images would accumulate silently in the account.
 
-Without this step, baked images accumulate silently in the account.
+**Deregistering the AMI (from any directory)**
+```bash
+AMI_ID=$(aws ec2 describe-images --owners self --filters "Name=tag:Project,Values=GoldenPipeline" --query "Images[0].ImageId" --output text)
+
+aws ec2 deregister-image --image-id "${AMI_ID}"
+```
+**Example output**
+```json
+{
+    "Return": true,
+    "DeleteSnapshotResults": []
+}
+```
+**Explanation**
+The AMI is deregistered but the snapshot was not deleted (empty `DeleteSnapshotResults`).
 
 
 ### 11.3 EBS snapshot deletion
 The EBS snapshot associated with the deregistered AMI is deleted via the AWS CLI.
 Indeed, deregistering an AMI does not automatically delete its underlying snapshot.
+
+**Deleting the EBS snapshot (from any directory)**
+```bash
+SNAPSHOT_ID=$(aws ec2 describe-snapshots --owner-ids self --filters "Name=tag:Project,Values=GoldenPipeline" --query "Snapshots[0].SnapshotId" --output text)
+
+aws ec2 delete-snapshot --snapshot-id "${SNAPSHOT_ID}"
+```
+
+**Checking snapshot deletion (from any directory)**
+```bash
+aws ec2 describe-snapshots --owner-ids self --filters "Name=tag:Project,Values=GoldenPipeline" --query "Snapshots[*].[SnapshotId,State]" --output text
+```
+**Expected output**
+Nothing, which proves the EBS snapshot has been deleted.
+
+
 
 
 ### 11.4 Verification
@@ -711,6 +984,21 @@ The following are confirmed empty or absent after teardown:
 
 This verification step enforces the IaC discipline principle from `architecture_decisions.md`, section 3.3:
 [docs/architecture_decisions.md, section 3.3](docs/architecture_decisions.md#33-iac-discipline:-lesson-from-terradriftguard)
+
+The last remaining checks are:
+**Checking for any remaining EC2 instances tagged with `Project = GoldenPipeline` (from any directory)**
+```bash
+aws ec2 describe-instances --filters "Name=tag:Project,Values=GoldenPipeline" "Name=instance-state-name,Values=running,stopped" --query "Reservations[*].Instances[*].[Tags[?Key=='Name']|[0].Value,InstanceId,State.Name]" --output text
+```
+**Example output**
+Nothing, which proves that all remaining EC2 instances tagged with `Project = GoldenPipeline` have been deleted.
+
+**Checking for any remaining VPCs tagged with `Project = GoldenPipeline` (from any directory)**
+```bash
+aws ec2 describe-vpcs --filters "Name=tag:Project,Values=GoldenPipeline" --query "Vpcs[*].[Tags[?Key=='Name']|[0].Value,VpcId]" --output text
+```
+**Example output**
+Nothing, which proves that all remaining VPCs tagged with `Project = GoldenPipeline` have been deleted.
 
 
 
@@ -886,10 +1174,6 @@ git add .
 git commit -m "Fix: stat output comparison and multi-line systemctl output handling in tests"
 git push
 ```
-
-
-
-
 
 #### 13.2.2 Debugging steps
 ##### 13.2.2.1 First pipeline run
@@ -1200,7 +1484,7 @@ gh run view 22921048691 --log-failed
 **Verdict**
 The failure is in `harden_filesystem.sh`, during the world-writable files or unowned files scan.  
 The `find` command encounters a Docker overlay2 directory that no longer exists (a transient mount point). 
-AS the script uses `set -euo pipefail`, the non-zero exit from `find` aborts the entire script.
+As the script uses `set -euo pipefail`, the non-zero exit from `find` aborts the entire script.
 The base Amazon Linux 2023 AMI includes Docker, and its overlay filesystem creates ephemeral paths that `find` cannot traverse.
 The fix is in `harden_filesystem.sh`. 
 The `find` commands that scan partitions need `|| true` appended to prevent `set -e` from aborting when `find` encounters an inaccessible path.
@@ -1517,7 +1801,7 @@ gh run list --limit 1 --json databaseId,conclusion,name,createdAt
 ```json
 [
   {
-    "conclusion": "",
+    "conclusion": "failed",
     "createdAt": "2026-03-11T00:11:17Z",
     "databaseId": 22930177649,
     "name": "GoldenPipeline CI/CD"
@@ -1557,6 +1841,29 @@ This is because in `ci-cd.yml`, both Stage 5 steps have `if: always() && github.
 This means Stage 5 runs even when a previous stage fails.  
 Therefore, teardown has already succeeded this time.
 
+##### 13.2.2.15 Debugging steps after the fifteenth push
+**Checking the fifteenth push (23 minutes to get the result this time), see in 13.2.1.15 (from root project folder)**
+```bash
+gh run list --limit 1 --json databaseId,conclusion,name,createdAt
+```
+```json
+[
+  {
+    "conclusion": "success",
+    "createdAt": "2026-03-11T00:55:57Z",
+    "databaseId": 22931413118,
+    "name": "GoldenPipeline CI/CD"
+  }
+]
+```
+**Verdict**
+All 5 stages passed. 
+The pipeline is fully operational, AT LAST!!!
+Resources were created and destroyed within this single pipeline run.  
+- Stage 2 baked the AMI
+- Stage 3 deployed the test infrastructure
+- Stage 4 ran the tests
+- Stage 5 tore everything down.
 
 
 
