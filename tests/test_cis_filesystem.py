@@ -31,7 +31,7 @@ class TestFilePermissions:
 
     def test_shadow_permissions(self, run_command):
         output = run_command("stat -c '%a' /etc/shadow")
-        assert output == "000"
+        assert output == "0"
 
     def test_group_permissions(self, run_command):
         output = run_command("stat -c '%a' /etc/group")
@@ -39,7 +39,7 @@ class TestFilePermissions:
 
     def test_gshadow_permissions(self, run_command):
         output = run_command("stat -c '%a' /etc/gshadow")
-        assert output == "000"
+        assert output == "0"
 
 
 class TestBootloaderPermissions:

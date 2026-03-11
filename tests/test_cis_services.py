@@ -26,9 +26,10 @@ class TestDisabledServices:
             output = run_command(
                 f"systemctl is-enabled {service} 2>/dev/null || echo 'not-installed'"
             )
-            assert output in ("masked", "not-installed"), (
-                f"Service {service} is not masked: {output}"
-            )
+            for line in output.splitlines():
+                assert line in ("masked", "not-installed"), (
+                    f"Service {service} is not masked: {line}"
+                )
 
     def test_services_not_active(self, run_command):
         """Verify that none of the disabled services are currently running."""
@@ -36,9 +37,10 @@ class TestDisabledServices:
             output = run_command(
                 f"systemctl is-active {service} 2>/dev/null || echo 'inactive'"
             )
-            assert output in ("inactive", "unknown"), (
-                f"Service {service} is still active: {output}"
-            )
+            for line in output.splitlines():
+                assert line in ("inactive", "unknown"), (
+                    f"Service {service} is still active: {line}"
+                )
 
 
 class TestTimeSynchronisation:

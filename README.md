@@ -873,12 +873,21 @@ git commit -m "Fix: replace individual ec2:Describe actions with ec2:Describe* w
 git push
 ```
 
-##### 13.2.1.14 Forteenth push after updating `.github/workflows/ci-cd.yml` and cleaning up stranded resources, see in 13.2.13 (from root project folder)**
+##### 13.2.1.14 fourteenth push after updating `.github/workflows/ci-cd.yml` and cleaning up stranded resources, see in 13.2.13 (from root project folder)**
 ```bash
 git add .
 git commit -m "Add SSM readiness wait step between terraform apply and pytest."
 git push
 ```
+
+##### 13.2.1.15 fifteenth push after updating `test_cis_filesystem.py` and `test_cis_filesystem.py`, see in 13.2.14 (from root project folder)**
+```bash
+git add .
+git commit -m "Fix: stat output comparison and multi-line systemctl output handling in tests"
+git push
+```
+
+
 
 
 
@@ -1476,7 +1485,7 @@ gh run list --limit 1 --json databaseId,conclusion,name,createdAt
   }
 ]
 ```
-**For the twelfth time, retrieving the log output of the failed step only (from root project folder)**
+**For the thirteenth time, retrieving the log output of the failed step only (from root project folder)**
 ```bash
 gh run view 22928513644 --log-failed
 ```
@@ -1500,9 +1509,53 @@ The tests will never run against an unregistered instance.
 **Expected output**
 This time, there was nothing to clean up.
 
+##### 13.2.2.14 Debugging steps after the fourteenth push
+**Checking the fourteenth push after several minutes (18 minutes this time!), see in 13.2.1.14 (from root project folder)**
+```bash
+gh run list --limit 1 --json databaseId,conclusion,name,createdAt
+```
+```json
+[
+  {
+    "conclusion": "",
+    "createdAt": "2026-03-11T00:11:17Z",
+    "databaseId": 22930177649,
+    "name": "GoldenPipeline CI/CD"
+  }
+]
+```
+**For the fourteenth time, retrieving the log output of the failed step only (from root project folder)**
+```bash
+gh run view 22930177649 --log-failed
+```
+**Verdict**
+35 out of 39 tests passed.  
+The `SSM` readiness fix worked.  
+Only 4 test bugs remain, and the hardening itself is correct in all 4 cases.
 
+**Failures 1 and 2**  
+file permissions:
+- `stat -c '%a'` returns 0 instead of 000 for mode 0000.
+- The test asserts `output == "000"` but `stat` outputs the minimal representation.
+The fix is in `test_cis_filesystem.py`: both assertions must be changed to compare against "0" instead of "000"
 
+**Failures 3 and 4** 
+service masking:
+- `rpcbind` has both a service unit and a socket unit:
+    - `rpcbind.service`
+    - `rpcbind.socket`
+- `systemctl is-enabled rpcbind` returns 2 lines:  
+    - `masked`  
+    - `not-installed`
+- The test expects a single-line output and compares the whole string.
+The fix is in `test_cis_services.py`: split the output by newline and check that each line is in the accepted values.
 
+**Going through the same cleanup steps as in 13.2.2.11**
+**Expected output**
+There was nothing to clean up.
+This is because in `ci-cd.yml`, both Stage 5 steps have `if: always() && github.event_name == 'push'`.  
+This means Stage 5 runs even when a previous stage fails.  
+Therefore, teardown has already succeeded this time.
 
 
 
