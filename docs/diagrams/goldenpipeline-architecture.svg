@@ -1,362 +1,265 @@
-<svg width="1400" height="1050" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 920" font-family="Segoe UI, Arial, sans-serif">
+
+  <!-- Background -->
+  <rect width="1200" height="920" fill="#f8f9fa"/>
+
+  <!-- Title -->
+  <text x="600" y="38" text-anchor="middle" font-size="22" font-weight="bold" fill="#1a2332">GoldenPipeline — Architecture Diagram</text>
+  <text x="600" y="58" text-anchor="middle" font-size="13" fill="#5a6577">Packer · Terraform · pytest · SSM · GitHub Actions OIDC · CIS Benchmark for Amazon Linux 2023</text>
+
+  <!-- ================================================================ -->
+  <!-- CI/CD PIPELINE — 5 stages                                        -->
+  <!-- ================================================================ -->
+  <rect x="30" y="78" width="1140" height="115" rx="8" fill="#eef1f6" stroke="#c5cdd8" stroke-width="1.2"/>
+  <text x="50" y="100" font-size="13" font-weight="bold" fill="#1a2332">GitHub Actions CI/CD Pipeline (single job · OIDC authentication · push to main)</text>
+
+  <!-- Stage 1 -->
+  <rect x="50" y="112" width="180" height="66" rx="6" fill="#dce6f5" stroke="#4a7fc4" stroke-width="1.4"/>
+  <text x="140" y="133" text-anchor="middle" font-size="11" font-weight="bold" fill="#2c5282">Stage 1</text>
+  <text x="140" y="147" text-anchor="middle" font-size="10" fill="#2c5282">Static Analysis</text>
+  <text x="140" y="162" text-anchor="middle" font-size="9" fill="#4a6a9a">terraform fmt · tflint · checkov</text>
+  <text x="140" y="173" text-anchor="middle" font-size="9" fill="#4a6a9a">packer fmt · packer validate</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="234" y1="145" x2="262" y2="145" stroke="#4a7fc4" stroke-width="1.8" marker-end="url(#arrowBlue)"/>
+
+  <!-- Stage 2 -->
+  <rect x="266" y="112" width="180" height="66" rx="6" fill="#d4edda" stroke="#2e7d47" stroke-width="1.4"/>
+  <text x="356" y="133" text-anchor="middle" font-size="11" font-weight="bold" fill="#1e5631">Stage 2</text>
+  <text x="356" y="147" text-anchor="middle" font-size="10" fill="#1e5631">Packer Build</text>
+  <text x="356" y="162" text-anchor="middle" font-size="9" fill="#3a7a4f">Amazon Linux 2023 base AMI</text>
+  <text x="356" y="173" text-anchor="middle" font-size="9" fill="#3a7a4f">6 CIS hardening scripts → AMI</text>
+
+  <!-- Arrow 2→3 -->
+  <line x1="450" y1="145" x2="478" y2="145" stroke="#2e7d47" stroke-width="1.8" marker-end="url(#arrowGreen)"/>
+
+  <!-- Stage 3 -->
+  <rect x="482" y="112" width="180" height="66" rx="6" fill="#fff3cd" stroke="#b8860b" stroke-width="1.4"/>
+  <text x="572" y="133" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5a00">Stage 3</text>
+  <text x="572" y="147" text-anchor="middle" font-size="10" fill="#7a5a00">Terraform Deploy</text>
+  <text x="572" y="162" text-anchor="middle" font-size="9" fill="#9a7a20">terraform plan → terraform apply</text>
+  <text x="572" y="173" text-anchor="middle" font-size="9" fill="#9a7a20">11 resources (4 modules)</text>
+
+  <!-- Arrow 3→4 -->
+  <line x1="666" y1="145" x2="694" y2="145" stroke="#b8860b" stroke-width="1.8" marker-end="url(#arrowAmber)"/>
+
+  <!-- Stage 4 -->
+  <rect x="698" y="112" width="180" height="66" rx="6" fill="#e2d6f0" stroke="#6b3fa0" stroke-width="1.4"/>
+  <text x="788" y="133" text-anchor="middle" font-size="11" font-weight="bold" fill="#4a2878">Stage 4</text>
+  <text x="788" y="147" text-anchor="middle" font-size="10" fill="#4a2878">Validate</text>
+  <text x="788" y="162" text-anchor="middle" font-size="9" fill="#6a4a9a">SSM readiness wait</text>
+  <text x="788" y="173" text-anchor="middle" font-size="9" fill="#6a4a9a">pytest — 39 CIS tests via SSM</text>
+
+  <!-- Arrow 4→5 -->
+  <line x1="882" y1="145" x2="910" y2="145" stroke="#6b3fa0" stroke-width="1.8" marker-end="url(#arrowPurple)"/>
+
+  <!-- Stage 5 -->
+  <rect x="914" y="112" width="240" height="66" rx="6" fill="#f8d7da" stroke="#c0392b" stroke-width="1.4"/>
+  <text x="1034" y="133" text-anchor="middle" font-size="11" font-weight="bold" fill="#922b21">Stage 5</text>
+  <text x="1034" y="147" text-anchor="middle" font-size="10" fill="#922b21">Teardown</text>
+  <text x="1034" y="162" text-anchor="middle" font-size="9" fill="#b03a2e">terraform destroy · deregister AMI</text>
+  <text x="1034" y="173" text-anchor="middle" font-size="9" fill="#b03a2e">delete EBS snapshot</text>
+
+  <!-- ================================================================ -->
+  <!-- ARROW MARKERS                                                     -->
+  <!-- ================================================================ -->
   <defs>
-    <style>
-      .region       { fill:#f8f9fa; stroke:#6c757d; stroke-width:2; rx:8; }
-      .vpc          { fill:#e8f0fe; stroke:#1a73e8; stroke-width:1.5; stroke-dasharray:6,3; rx:6; }
-      .priv-subnet  { fill:#fff8e1; stroke:#f9a825; stroke-width:1.5; rx:5; }
-      .box          { fill:#fff; stroke:#495057; stroke-width:1.2; rx:4; }
-      .box-ec2      { fill:#ff9900; stroke:#cc7a00; stroke-width:1.2; rx:4; }
-      .box-vpce     { fill:#945bb4; stroke:#6d3f87; stroke-width:1.2; rx:4; }
-      .box-iam      { fill:#dd344c; stroke:#b02a3d; stroke-width:1.2; rx:4; }
-      .box-sg       { fill:#e8334c; stroke:#c02a3f; stroke-width:1.2; rx:4; }
-      .box-packer   { fill:#02a8ef; stroke:#0287c0; stroke-width:1.2; rx:4; }
-      .box-gha      { fill:#24292e; stroke:#111; stroke-width:1.2; rx:4; }
-      .box-oidc     { fill:#569a31; stroke:#3d7222; stroke-width:1.2; rx:4; }
-      .box-tf       { fill:#7b42bc; stroke:#5c2e91; stroke-width:1.2; rx:4; }
-      .box-stage    { fill:#1a73e8; stroke:#1260c2; stroke-width:1.2; rx:4; }
-      .box-stage-ok { fill:#28a745; stroke:#1e8435; stroke-width:1.2; rx:4; }
-      .box-stage-rd { fill:#dc3545; stroke:#b02a3d; stroke-width:1.2; rx:4; }
-
-      .t-title      { font-size:20px; font-weight:700; fill:#212529; }
-      .t-sub        { font-size:12px; fill:#6c757d; }
-      .t-region     { font-size:14px; font-weight:700; fill:#495057; }
-      .t-label      { font-size:11px; font-weight:600; fill:#fff; }
-      .t-label-dk   { font-size:11px; font-weight:600; fill:#212529; }
-      .t-detail     { font-size:9px; fill:#fff; }
-      .t-detail-dk  { font-size:9px; fill:#495057; }
-      .t-subnet     { font-size:10px; font-weight:600; fill:#495057; }
-      .t-legend     { font-size:10px; fill:#495057; }
-      .t-legend-h   { font-size:11px; font-weight:700; fill:#212529; }
-      .t-cost       { font-size:9px; fill:#495057; }
-      .t-stage      { font-size:10px; font-weight:600; fill:#fff; }
-      .t-stage-d    { font-size:8px; fill:#fff; }
-
-      .arrow        { fill:none; stroke:#495057; stroke-width:1.8; marker-end:url(#ah); }
-      .arrow-blue   { stroke:#1a73e8; marker-end:url(#ah-blue); }
-      .arrow-purple { stroke:#945bb4; marker-end:url(#ah-purple); }
-      .arrow-green  { stroke:#28a745; marker-end:url(#ah-green); }
-      .arrow-red    { stroke:#dc3545; marker-end:url(#ah-red); }
-      .arrow-orange { stroke:#ff9900; marker-end:url(#ah-orange); }
-      .arrow-gha    { stroke:#7b42bc; marker-end:url(#ah-gha); }
-      .arrow-dash   { stroke-dasharray:5,4; }
-    </style>
-    <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#495057"/></marker>
-    <marker id="ah-blue" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#1a73e8"/></marker>
-    <marker id="ah-purple" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#945bb4"/></marker>
-    <marker id="ah-green" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#28a745"/></marker>
-    <marker id="ah-red" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#dc3545"/></marker>
-    <marker id="ah-orange" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#ff9900"/></marker>
-    <marker id="ah-gha" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#7b42bc"/></marker>
+    <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#4a7fc4"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#2e7d47"/>
+    </marker>
+    <marker id="arrowAmber" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#b8860b"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#6b3fa0"/>
+    </marker>
+    <marker id="arrowDark" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#3a4a5c"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#d35400"/>
+    </marker>
+    <marker id="arrowSSM" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#6b3fa0"/>
+    </marker>
   </defs>
 
-  <!-- ================================================================ -->
-  <!-- TITLE                                                            -->
-  <!-- ================================================================ -->
-  <text x="700" y="32" text-anchor="middle" class="t-title">GoldenPipeline — Architecture</text>
-  <text x="700" y="50" text-anchor="middle" class="t-sub">GitHub Actions · Packer · CIS Hardening · Terraform · SSM · VPC Endpoints · OIDC</text>
 
   <!-- ================================================================ -->
-  <!-- CI/CD PIPELINE (top layer)                                       -->
+  <!-- PACKER BUILD (Stage 2 detail) — left side                        -->
   <!-- ================================================================ -->
-  <rect x="30" y="68" width="1340" height="110" rx="6" fill="#f0f0f0" stroke="#24292e" stroke-width="1.5" stroke-dasharray="6,3"/>
-  <text x="50" y="88" style="font-size:13px; font-weight:700; fill:#24292e;">GitHub Actions — CI/CD Pipeline (single job)</text>
-  <text x="50" y="102" style="font-size:9px; fill:#495057;">ci-cd.yml · triggered on push · OIDC credentials · all stages sequential</text>
+  <rect x="30" y="215" width="340" height="310" rx="8" fill="#eaf5ed" stroke="#2e7d47" stroke-width="1.2"/>
+  <text x="200" y="238" text-anchor="middle" font-size="13" font-weight="bold" fill="#1e5631">Stage 2 — Packer Build</text>
 
-  <!-- Stage 1: Static Analysis -->
-  <rect x="50" y="112" width="210" height="52" class="box-stage"/>
-  <text x="155" y="131" text-anchor="middle" class="t-stage">Stage 1 — Static Analysis</text>
-  <text x="155" y="145" text-anchor="middle" class="t-stage-d">terraform fmt · tflint · checkov</text>
-  <text x="155" y="155" text-anchor="middle" class="t-stage-d">packer fmt · packer validate</text>
+  <!-- Base AMI -->
+  <rect x="55" y="252" width="290" height="36" rx="5" fill="#ffffff" stroke="#2e7d47" stroke-width="1"/>
+  <text x="200" y="275" text-anchor="middle" font-size="11" fill="#1e5631">Base AMI: Amazon Linux 2023 (x86_64)</text>
 
-  <!-- Arrow 1 → 2 -->
-  <line x1="260" y1="138" x2="290" y2="138" class="arrow"/>
+  <!-- Hardening scripts -->
+  <rect x="55" y="300" width="290" height="145" rx="5" fill="#ffffff" stroke="#2e7d47" stroke-width="1"/>
+  <text x="200" y="318" text-anchor="middle" font-size="11" font-weight="bold" fill="#1e5631">6 CIS Hardening Scripts</text>
+  <text x="75" y="338" font-size="10" fill="#3a7a4f">1. harden_updates.sh — automatic security updates</text>
+  <text x="75" y="355" font-size="10" fill="#3a7a4f">2. harden_ssh.sh — SSH daemon hardening</text>
+  <text x="75" y="372" font-size="10" fill="#3a7a4f">3. harden_filesystem.sh — file permissions</text>
+  <text x="75" y="389" font-size="10" fill="#3a7a4f">4. harden_services.sh — disable unused services</text>
+  <text x="75" y="406" font-size="10" fill="#3a7a4f">5. harden_audit.sh — audit logging</text>
+  <text x="75" y="423" font-size="10" fill="#3a7a4f">6. cleanup.sh — remove temporary files</text>
 
-  <!-- Stage 2: Build -->
-  <rect x="290" y="112" width="190" height="52" class="box-stage"/>
-  <text x="385" y="131" text-anchor="middle" class="t-stage">Stage 2 — Build</text>
-  <text x="385" y="145" text-anchor="middle" class="t-stage-d">packer build</text>
-  <text x="385" y="155" text-anchor="middle" class="t-stage-d">AMI ID → manifest.json</text>
+  <!-- Output AMI -->
+  <rect x="55" y="458" width="290" height="36" rx="5" fill="#d4edda" stroke="#2e7d47" stroke-width="1.4"/>
+  <text x="200" y="481" text-anchor="middle" font-size="11" font-weight="bold" fill="#1e5631">Golden AMI (CIS-hardened) + manifest.json</text>
 
-  <!-- Arrow 2 → 3 -->
-  <line x1="480" y1="138" x2="510" y2="138" class="arrow"/>
+  <!-- Arrow from Base AMI to scripts -->
+  <line x1="200" y1="288" x2="200" y2="300" stroke="#2e7d47" stroke-width="1.2" marker-end="url(#arrowGreen)"/>
+  <!-- Arrow from scripts to output -->
+  <line x1="200" y1="445" x2="200" y2="458" stroke="#2e7d47" stroke-width="1.2" marker-end="url(#arrowGreen)"/>
 
-  <!-- Stage 3: Deploy -->
-  <rect x="510" y="112" width="210" height="52" class="box-stage"/>
-  <text x="615" y="131" text-anchor="middle" class="t-stage">Stage 3 — Deploy</text>
-  <text x="615" y="145" text-anchor="middle" class="t-stage-d">terraform plan · terraform apply</text>
-  <text x="615" y="155" text-anchor="middle" class="t-stage-d">AMI ID passed via -var</text>
+  <!-- Tags label -->
+  <text x="200" y="513" text-anchor="middle" font-size="9" fill="#3a7a4f">All resources tagged: Project = "GoldenPipeline"</text>
 
-  <!-- Arrow 3 → 4 -->
-  <line x1="720" y1="138" x2="750" y2="138" class="arrow"/>
-
-  <!-- Stage 4: Validate -->
-  <rect x="750" y="112" width="210" height="52" class="box-stage-ok"/>
-  <text x="855" y="131" text-anchor="middle" class="t-stage">Stage 4 — Validate</text>
-  <text x="855" y="145" text-anchor="middle" class="t-stage-d">pytest via SSM</text>
-  <text x="855" y="155" text-anchor="middle" class="t-stage-d">CIS hardening checks</text>
-
-  <!-- Arrow 4 → 5 -->
-  <line x1="960" y1="138" x2="990" y2="138" class="arrow"/>
-
-  <!-- Stage 5: Teardown -->
-  <rect x="990" y="112" width="240" height="52" class="box-stage-rd"/>
-  <text x="1110" y="131" text-anchor="middle" class="t-stage">Stage 5 — Teardown</text>
-  <text x="1110" y="145" text-anchor="middle" class="t-stage-d">terraform destroy</text>
-  <text x="1110" y="155" text-anchor="middle" class="t-stage-d">Deregister AMI · Delete EBS snapshot</text>
 
   <!-- ================================================================ -->
-  <!-- EXTERNAL SERVICES (left side)                                    -->
+  <!-- AWS INFRASTRUCTURE (Stage 3 detail) — right side                  -->
   <!-- ================================================================ -->
 
-  <!-- OIDC -->
-  <rect x="30" y="210" width="160" height="55" class="box-oidc"/>
-  <text x="110" y="233" text-anchor="middle" class="t-label">OIDC</text>
-  <text x="110" y="248" text-anchor="middle" class="t-detail">Short-lived credentials</text>
-
-  <!-- Packer -->
-  <rect x="30" y="290" width="160" height="70" class="box-packer"/>
-  <text x="110" y="313" text-anchor="middle" class="t-label">Packer</text>
-  <text x="110" y="328" text-anchor="middle" class="t-detail">Bakes golden AMI</text>
-  <text x="110" y="341" text-anchor="middle" class="t-detail">6 hardening scripts</text>
-
-  <!-- Terraform -->
-  <rect x="30" y="385" width="160" height="55" class="box-tf"/>
-  <text x="110" y="408" text-anchor="middle" class="t-label">Terraform</text>
-  <text x="110" y="423" text-anchor="middle" class="t-detail">Infrastructure as Code</text>
-
-  <!-- Arrow: OIDC → Pipeline -->
-  <line x1="110" y1="210" x2="110" y2="178" class="arrow arrow-green"/>
-  <text x="118" y="198" class="t-detail-dk" style="fill:#569a31;">IAM role</text>
-
-  <!-- Arrow: Packer → AWS region -->
-  <line x1="190" y1="325" x2="230" y2="325" class="arrow arrow-blue"/>
-
-  <!-- Arrow: Terraform → AWS region -->
-  <line x1="190" y1="412" x2="230" y2="412" class="arrow arrow-gha"/>
-
-  <!-- ================================================================ -->
-  <!-- AWS REGION                                                       -->
-  <!-- ================================================================ -->
-  <rect x="230" y="195" width="1140" height="390" class="region"/>
-  <text x="250" y="218" class="t-region">AWS — us-east-1</text>
+  <!-- AWS region container -->
+  <rect x="400" y="215" width="770" height="430" rx="8" fill="#e8ecf1" stroke="#3a4a5c" stroke-width="1.2"/>
+  <text x="785" y="238" text-anchor="middle" font-size="13" font-weight="bold" fill="#1a2332">Stage 3 — AWS Infrastructure (us-east-1)</text>
 
   <!-- VPC -->
-  <rect x="250" y="230" width="1100" height="340" class="vpc"/>
-  <text x="268" y="250" class="t-subnet" style="fill:#1a73e8;">VPC — 10.0.0.0/24</text>
+  <rect x="420" y="250" width="730" height="260" rx="7" fill="#dce6f5" stroke="#4a7fc4" stroke-width="1.2"/>
+  <text x="440" y="270" font-size="12" font-weight="bold" fill="#2c5282">VPC</text>
 
   <!-- Private Subnet -->
-  <rect x="270" y="260" width="530" height="295" class="priv-subnet"/>
-  <text x="282" y="278" class="t-subnet">Private Subnet — 10.0.0.0/28 (no internet gateway)</text>
+  <rect x="440" y="282" width="350" height="210" rx="6" fill="#c9daf0" stroke="#4a7fc4" stroke-width="1"/>
+  <text x="460" y="302" font-size="11" font-weight="bold" fill="#2c5282">Private Subnet (no internet gateway)</text>
 
-  <!-- Test EC2 Instance -->
-  <rect x="290" y="295" width="240" height="80" class="box-ec2"/>
-  <text x="410" y="318" text-anchor="middle" class="t-label">Test EC2 Instance</text>
-  <text x="410" y="333" text-anchor="middle" class="t-detail">Launched from baked AMI</text>
-  <text x="410" y="346" text-anchor="middle" class="t-detail">t3.micro · No public IP</text>
-  <text x="410" y="359" text-anchor="middle" class="t-detail">associate_public_ip_address = false</text>
+  <!-- EC2 Instance -->
+  <rect x="460" y="314" width="310" height="80" rx="5" fill="#ffffff" stroke="#d35400" stroke-width="1.4"/>
+  <text x="615" y="336" text-anchor="middle" font-size="11" font-weight="bold" fill="#d35400">EC2 Test Instance</text>
+  <text x="615" y="353" text-anchor="middle" font-size="10" fill="#7a4a20">Launched from golden AMI</text>
+  <text x="615" y="368" text-anchor="middle" font-size="10" fill="#7a4a20">No public IP · t3.micro</text>
+  <text x="615" y="383" text-anchor="middle" font-size="10" fill="#7a4a20">SSM agent pre-installed</text>
 
-  <!-- EC2 Security Group -->
-  <rect x="290" y="395" width="240" height="60" class="box-sg"/>
-  <text x="410" y="418" text-anchor="middle" class="t-label">Security Group — EC2</text>
-  <text x="410" y="433" text-anchor="middle" class="t-detail">No inbound rules</text>
-  <text x="410" y="445" text-anchor="middle" class="t-detail">Egress: HTTPS (443) → VPC CIDR only</text>
+  <!-- Security Group for EC2 -->
+  <rect x="460" y="404" width="310" height="44" rx="5" fill="#fef3e0" stroke="#d35400" stroke-width="1"/>
+  <text x="615" y="421" text-anchor="middle" font-size="10" font-weight="bold" fill="#d35400">EC2 Security Group</text>
+  <text x="615" y="436" text-anchor="middle" font-size="9" fill="#a04000">No inbound · egress HTTPS (443) to VPC CIDR</text>
 
-  <!-- IAM Instance Profile -->
-  <rect x="290" y="475" width="240" height="60" class="box-iam"/>
-  <text x="410" y="498" text-anchor="middle" class="t-label">IAM Instance Profile</text>
-  <text x="410" y="513" text-anchor="middle" class="t-detail">EC2 assume-role trust policy</text>
-  <text x="410" y="525" text-anchor="middle" class="t-detail">AmazonSSMManagedInstanceCore</text>
+  <!-- IAM Role -->
+  <rect x="460" y="456" width="310" height="28" rx="5" fill="#fff8e1" stroke="#b8860b" stroke-width="1"/>
+  <text x="615" y="475" text-anchor="middle" font-size="10" fill="#7a5a00">IAM Role + Instance Profile (AmazonSSMManagedInstanceCore)</text>
 
-  <!-- Arrow: EC2 → Security Group -->
-  <line x1="410" y1="375" x2="410" y2="393" class="arrow" style="stroke-width:1.2;"/>
+  <!-- VPC Endpoints -->
+  <rect x="810" y="282" width="320" height="210" rx="6" fill="#e8d5f5" stroke="#6b3fa0" stroke-width="1.2"/>
+  <text x="970" y="302" text-anchor="middle" font-size="11" font-weight="bold" fill="#4a2878">VPC Endpoints (Interface)</text>
 
-  <!-- Arrow: EC2 → IAM -->
-  <path d="M 330 375 L 330 385 L 330 473" class="arrow" style="stroke-width:1.2;"/>
+  <rect x="830" y="314" width="280" height="36" rx="4" fill="#ffffff" stroke="#6b3fa0" stroke-width="1"/>
+  <text x="970" y="337" text-anchor="middle" font-size="10" fill="#4a2878">com.amazonaws.us-east-1.ssm</text>
 
-  <!-- ================================================================ -->
-  <!-- VPC ENDPOINTS                                                    -->
-  <!-- ================================================================ -->
-  <rect x="580" y="260" width="200" height="295" class="priv-subnet"/>
-  <text x="592" y="278" class="t-subnet">VPC Endpoints (SSM)</text>
+  <rect x="830" y="360" width="280" height="36" rx="4" fill="#ffffff" stroke="#6b3fa0" stroke-width="1"/>
+  <text x="970" y="383" text-anchor="middle" font-size="10" fill="#4a2878">com.amazonaws.us-east-1.ssmmessages</text>
 
-  <!-- VPCE: ssm -->
-  <rect x="600" y="295" width="160" height="48" class="box-vpce"/>
-  <text x="680" y="315" text-anchor="middle" class="t-label">VPCE: ssm</text>
-  <text x="680" y="330" text-anchor="middle" class="t-detail">Interface · private DNS</text>
+  <rect x="830" y="406" width="280" height="36" rx="4" fill="#ffffff" stroke="#6b3fa0" stroke-width="1"/>
+  <text x="970" y="429" text-anchor="middle" font-size="10" fill="#4a2878">com.amazonaws.us-east-1.ec2messages</text>
 
-  <!-- VPCE: ssmmessages -->
-  <rect x="600" y="360" width="160" height="48" class="box-vpce"/>
-  <text x="680" y="380" text-anchor="middle" class="t-label">VPCE: ssmmessages</text>
-  <text x="680" y="395" text-anchor="middle" class="t-detail">Interface · private DNS</text>
+  <!-- VPC Endpoint Security Group -->
+  <rect x="830" y="452" width="280" height="32" rx="4" fill="#f3e8fc" stroke="#6b3fa0" stroke-width="1"/>
+  <text x="970" y="472" text-anchor="middle" font-size="9" fill="#4a2878">VPCE Security Group — HTTPS (443) from VPC CIDR</text>
 
-  <!-- VPCE: ec2messages -->
-  <rect x="600" y="425" width="160" height="48" class="box-vpce"/>
-  <text x="680" y="445" text-anchor="middle" class="t-label">VPCE: ec2messages</text>
-  <text x="680" y="460" text-anchor="middle" class="t-detail">Interface · private DNS</text>
+  <!-- Arrow: EC2 → VPC Endpoints (HTTPS 443) -->
+  <line x1="770" y1="354" x2="826" y2="354" stroke="#6b3fa0" stroke-width="1.6" stroke-dasharray="6,3" marker-end="url(#arrowSSM)"/>
+  <text x="798" y="347" text-anchor="middle" font-size="8" fill="#6b3fa0">443</text>
 
-  <!-- VPCE Security Group -->
-  <rect x="600" y="490" width="160" height="48" class="box-sg"/>
-  <text x="680" y="508" text-anchor="middle" class="t-label">Security Group — VPCE</text>
-  <text x="680" y="523" text-anchor="middle" class="t-detail">Ingress: HTTPS (443)</text>
-  <text x="680" y="533" text-anchor="middle" class="t-detail">from VPC CIDR only</text>
+  <!-- Terraform state label -->
+  <rect x="420" y="520" width="200" height="32" rx="5" fill="#ffffff" stroke="#3a4a5c" stroke-width="1"/>
+  <text x="520" y="541" text-anchor="middle" font-size="10" fill="#3a4a5c">Terraform state: local (ephemeral)</text>
 
-  <!-- Arrow: EC2 → VPC Endpoints (HTTPS) -->
-  <line x1="530" y1="335" x2="598" y2="335" class="arrow arrow-purple"/>
-  <text x="558" y="328" class="t-detail-dk" style="fill:#945bb4;">HTTPS</text>
+  <!-- Resource count -->
+  <rect x="640" y="520" width="200" height="32" rx="5" fill="#ffffff" stroke="#3a4a5c" stroke-width="1"/>
+  <text x="740" y="541" text-anchor="middle" font-size="10" fill="#3a4a5c">11 resources · 4 modules</text>
+
+  <!-- default_tags label -->
+  <rect x="860" y="520" width="290" height="32" rx="5" fill="#ffffff" stroke="#3a4a5c" stroke-width="1"/>
+  <text x="1005" y="541" text-anchor="middle" font-size="10" fill="#3a4a5c">default_tags: Project = "GoldenPipeline"</text>
+
 
   <!-- ================================================================ -->
-  <!-- HARDENING SCRIPTS (right side, inside AWS region)                -->
+  <!-- ARROW: Packer output → Terraform (AMI lookup)                     -->
   <!-- ================================================================ -->
-  <rect x="830" y="260" width="270" height="295" rx="5" fill="#fde8ec" stroke="#dd344c" stroke-width="1.2"/>
-  <text x="965" y="280" text-anchor="middle" style="font-size:12px; font-weight:700; fill:#b02a3d;">CIS Hardening (baked into AMI)</text>
+  <path d="M 345 476 C 370 476, 370 354, 456 354" fill="none" stroke="#3a4a5c" stroke-width="1.6" marker-end="url(#arrowDark)"/>
+  <text x="386" y="400" font-size="9" fill="#3a4a5c" transform="rotate(-50, 386, 400)">aws_ami data source</text>
 
-  <rect x="850" y="295" width="230" height="35" rx="4" fill="#dd344c" stroke="#b02a3d" stroke-width="1"/>
-  <text x="965" y="317" text-anchor="middle" class="t-detail" style="font-weight:600;">harden_updates.sh — dnf-automatic</text>
-
-  <rect x="850" y="340" width="230" height="35" rx="4" fill="#dd344c" stroke="#b02a3d" stroke-width="1"/>
-  <text x="965" y="362" text-anchor="middle" class="t-detail" style="font-weight:600;">harden_ssh.sh — SSH daemon hardening</text>
-
-  <rect x="850" y="385" width="230" height="35" rx="4" fill="#dd344c" stroke="#b02a3d" stroke-width="1"/>
-  <text x="965" y="407" text-anchor="middle" class="t-detail" style="font-weight:600;">harden_filesystem.sh — permissions</text>
-
-  <rect x="850" y="430" width="230" height="35" rx="4" fill="#dd344c" stroke="#b02a3d" stroke-width="1"/>
-  <text x="965" y="452" text-anchor="middle" class="t-detail" style="font-weight:600;">harden_services.sh — disable unused</text>
-
-  <rect x="850" y="475" width="230" height="35" rx="4" fill="#dd344c" stroke="#b02a3d" stroke-width="1"/>
-  <text x="965" y="497" text-anchor="middle" class="t-detail" style="font-weight:600;">harden_audit.sh — auditd rules</text>
-
-  <rect x="850" y="520" width="230" height="25" rx="4" fill="#fff" stroke="#b02a3d" stroke-width="1"/>
-  <text x="965" y="537" text-anchor="middle" class="t-detail-dk" style="font-weight:600;">cleanup.sh — pre-snapshot cleanup</text>
-
-  <!-- Arrow: Pipeline Stage 4 → EC2 (validate via SSM) -->
-  <path d="M 855 164 L 855 185 L 560 185 L 560 250 L 410 250 L 410 293" class="arrow arrow-green"/>
-  <text x="570" y="200" class="t-detail-dk" style="fill:#28a745; font-weight:600;">pytest via SSM</text>
-
-  <!-- Arrow: Pipeline Stage 2 → Packer region -->
-  <path d="M 385 164 L 385 185 L 965 185 L 965 260" class="arrow arrow-blue"/>
-  <text x="700" y="200" class="t-detail-dk" style="fill:#1a73e8; font-weight:600;">packer build</text>
 
   <!-- ================================================================ -->
-  <!-- TAGGING ANNOTATION                                               -->
+  <!-- STAGE 4 — VALIDATION (bottom left)                               -->
   <!-- ================================================================ -->
-  <rect x="1130" y="260" width="200" height="85" rx="4" fill="#fff" stroke="#495057" stroke-width="1" stroke-dasharray="4,2"/>
-  <text x="1230" y="280" text-anchor="middle" class="t-label-dk" style="font-size:10px;">Cost Explorer Tagging</text>
-  <text x="1230" y="298" text-anchor="middle" class="t-detail-dk">Terraform: default_tags</text>
-  <text x="1230" y="312" text-anchor="middle" class="t-detail-dk">Packer: tags + run_tags</text>
-  <text x="1230" y="326" text-anchor="middle" class="t-detail-dk">Project = "GoldenPipeline"</text>
-  <text x="1230" y="340" text-anchor="middle" class="t-detail-dk">on every resource</text>
+  <rect x="30" y="558" width="340" height="115" rx="8" fill="#f0eaf8" stroke="#6b3fa0" stroke-width="1.2"/>
+  <text x="200" y="580" text-anchor="middle" font-size="13" font-weight="bold" fill="#4a2878">Stage 4 — Validation</text>
+  <text x="200" y="600" text-anchor="middle" font-size="10" fill="#6a4a9a">pytest runs 39 CIS tests via SSM SendCommand</text>
+  <text x="200" y="618" text-anchor="middle" font-size="10" fill="#6a4a9a">5 test files (1-to-1 mapping with hardening scripts)</text>
+  <text x="200" y="638" text-anchor="middle" font-size="10" fill="#6a4a9a">SSM readiness poll (max 300 seconds) before tests</text>
+  <text x="200" y="656" text-anchor="middle" font-size="10" fill="#6a4a9a">boto3 SSM client via conftest.py shared fixture</text>
+
+  <!-- Arrow from validation to EC2 (SSM) -->
+  <path d="M 370 610 L 456 380" fill="none" stroke="#6b3fa0" stroke-width="1.4" stroke-dasharray="6,3" marker-end="url(#arrowSSM)"/>
+  <text x="400" y="510" font-size="9" fill="#6b3fa0" transform="rotate(-60, 400, 510)">SSM SendCommand</text>
+
 
   <!-- ================================================================ -->
-  <!-- BOTTOM PANELS                                                    -->
+  <!-- LEGEND                                                            -->
   <!-- ================================================================ -->
+  <rect x="30" y="700" width="550" height="200" rx="8" fill="#ffffff" stroke="#c5cdd8" stroke-width="1"/>
+  <text x="50" y="724" font-size="13" font-weight="bold" fill="#1a2332">Legend</text>
 
-  <!-- Panel 1: Pipeline Flow -->
-  <rect x="30" y="610" width="440" height="420" rx="6" fill="#fff" stroke="#dee2e6" stroke-width="1"/>
-  <text x="50" y="636" class="t-legend-h">Pipeline Flow</text>
-  <text x="50" y="656" class="t-legend">1. Every push triggers the GitHub Actions workflow.</text>
-  <text x="50" y="673" class="t-legend">2. Stage 1 runs static analysis: terraform fmt, tflint, checkov</text>
-  <text x="50" y="688" class="t-legend">   on Terraform code; packer fmt and packer validate on the</text>
-  <text x="50" y="703" class="t-legend">   Packer template. Any failure stops the pipeline.</text>
-  <text x="50" y="723" class="t-legend">3. Stage 2 runs packer build to bake the golden AMI.</text>
-  <text x="50" y="738" class="t-legend">   The AMI ID is extracted from manifest.json.</text>
-  <text x="50" y="758" class="t-legend">4. Stage 3 runs terraform plan and terraform apply,</text>
-  <text x="50" y="773" class="t-legend">   passing the AMI ID via -var. This deploys the test</text>
-  <text x="50" y="788" class="t-legend">   EC2 instance in a private subnet with SSM access.</text>
-  <text x="50" y="808" class="t-legend">5. Stage 4 runs pytest, which executes CIS hardening</text>
-  <text x="50" y="823" class="t-legend">   checks on the running instance via SSM SendCommand.</text>
-  <text x="50" y="843" class="t-legend">6. Stage 5 runs terraform destroy, deregisters the AMI,</text>
-  <text x="50" y="858" class="t-legend">   and deletes the associated EBS snapshot.</text>
-  <text x="50" y="878" class="t-legend">   Without cleanup, baked images accumulate silently.</text>
+  <!-- Pipeline stages -->
+  <rect x="50" y="736" width="16" height="12" rx="2" fill="#dce6f5" stroke="#4a7fc4" stroke-width="1"/>
+  <text x="74" y="747" font-size="10" fill="#3a4a5c">Static analysis (quality gate)</text>
 
-  <text x="50" y="908" class="t-legend-h">CIS Hardening Validated</text>
-  <text x="50" y="926" class="t-legend">Automatic security updates (dnf-automatic)</text>
-  <text x="50" y="942" class="t-legend">SSH daemon hardening (root login, ciphers, MACs, KEX)</text>
-  <text x="50" y="958" class="t-legend">Filesystem permissions (passwd, shadow, group, gshadow)</text>
-  <text x="50" y="974" class="t-legend">Disabled services (10 services masked, chronyd active)</text>
-  <text x="50" y="990" class="t-legend">Audit logging (auditd rules for identity, access, sudo)</text>
-  <text x="50" y="1010" class="t-cost">Base OS: Amazon Linux 2023 · CIS Benchmark compliant</text>
+  <rect x="50" y="756" width="16" height="12" rx="2" fill="#d4edda" stroke="#2e7d47" stroke-width="1"/>
+  <text x="74" y="767" font-size="10" fill="#3a4a5c">Packer build (AMI bake)</text>
 
-  <!-- Panel 2: Legend -->
-  <rect x="485" y="610" width="355" height="420" rx="6" fill="#fff" stroke="#dee2e6" stroke-width="1"/>
-  <text x="505" y="636" class="t-legend-h">Legend</text>
+  <rect x="50" y="776" width="16" height="12" rx="2" fill="#fff3cd" stroke="#b8860b" stroke-width="1"/>
+  <text x="74" y="787" font-size="10" fill="#3a4a5c">Terraform infrastructure</text>
 
-  <rect x="505" y="648" width="14" height="14" rx="2" fill="#ff9900" stroke="#cc7a00" stroke-width="1"/>
-  <text x="526" y="660" class="t-legend">EC2 test instance (launched from baked AMI)</text>
+  <rect x="50" y="796" width="16" height="12" rx="2" fill="#e2d6f0" stroke="#6b3fa0" stroke-width="1"/>
+  <text x="74" y="807" font-size="10" fill="#3a4a5c">SSM connectivity and validation</text>
 
-  <rect x="505" y="670" width="14" height="14" rx="2" fill="#945bb4" stroke="#6d3f87" stroke-width="1"/>
-  <text x="526" y="682" class="t-legend">VPC Endpoints (SSM connectivity)</text>
+  <rect x="50" y="816" width="16" height="12" rx="2" fill="#f8d7da" stroke="#c0392b" stroke-width="1"/>
+  <text x="74" y="827" font-size="10" fill="#3a4a5c">Teardown (destroy + deregister + delete snapshot)</text>
 
-  <rect x="505" y="692" width="14" height="14" rx="2" fill="#e8334c" stroke="#c02a3f" stroke-width="1"/>
-  <text x="526" y="704" class="t-legend">Security group (EC2 or VPC endpoints)</text>
+  <!-- Line types -->
+  <line x1="310" y1="742" x2="346" y2="742" stroke="#3a4a5c" stroke-width="1.4"/>
+  <text x="354" y="746" font-size="10" fill="#3a4a5c">Data flow</text>
 
-  <rect x="505" y="714" width="14" height="14" rx="2" fill="#dd344c" stroke="#b02a3d" stroke-width="1"/>
-  <text x="526" y="726" class="t-legend">CIS hardening script</text>
+  <line x1="310" y1="762" x2="346" y2="762" stroke="#6b3fa0" stroke-width="1.4" stroke-dasharray="6,3"/>
+  <text x="354" y="766" font-size="10" fill="#3a4a5c">SSM connectivity (HTTPS 443)</text>
 
-  <rect x="505" y="736" width="14" height="14" rx="2" fill="#02a8ef" stroke="#0287c0" stroke-width="1"/>
-  <text x="526" y="748" class="t-legend">Packer (AMI build)</text>
+  <!-- Networking -->
+  <text x="50" y="855" font-size="10" font-weight="bold" fill="#1a2332">Network posture:</text>
+  <text x="50" y="872" font-size="10" fill="#3a4a5c">No internet gateway · no public subnet · no public IP · no inbound security group rules</text>
+  <text x="50" y="889" font-size="10" fill="#3a4a5c">All AWS API traffic stays within the VPC via interface endpoints</text>
 
-  <rect x="505" y="758" width="14" height="14" rx="2" fill="#7b42bc" stroke="#5c2e91" stroke-width="1"/>
-  <text x="526" y="770" class="t-legend">Terraform (infrastructure as code)</text>
 
-  <rect x="505" y="780" width="14" height="14" rx="2" fill="#569a31" stroke="#3d7222" stroke-width="1"/>
-  <text x="526" y="792" class="t-legend">OIDC (short-lived credentials)</text>
+  <!-- ================================================================ -->
+  <!-- KEY DECISIONS                                                     -->
+  <!-- ================================================================ -->
+  <rect x="610" y="700" width="560" height="200" rx="8" fill="#ffffff" stroke="#c5cdd8" stroke-width="1"/>
+  <text x="630" y="724" font-size="13" font-weight="bold" fill="#1a2332">Key Decisions</text>
 
-  <rect x="505" y="802" width="14" height="14" rx="2" fill="#24292e" stroke="#111" stroke-width="1"/>
-  <text x="526" y="814" class="t-legend">GitHub Actions pipeline</text>
-
-  <rect x="505" y="824" width="14" height="14" rx="2" fill="#1a73e8" stroke="#1260c2" stroke-width="1"/>
-  <text x="526" y="836" class="t-legend">Pipeline stage (blue = in progress)</text>
-
-  <rect x="505" y="846" width="14" height="14" rx="2" fill="#28a745" stroke="#1e8435" stroke-width="1"/>
-  <text x="526" y="858" class="t-legend">Pipeline stage (green = validation)</text>
-
-  <rect x="505" y="868" width="14" height="14" rx="2" fill="#dc3545" stroke="#b02a3d" stroke-width="1"/>
-  <text x="526" y="880" class="t-legend">Pipeline stage (red = teardown)</text>
-
-  <line x1="505" y1="900" x2="535" y2="900" fill="none" stroke="#495057" stroke-width="1.8" marker-end="url(#ah)"/>
-  <text x="543" y="904" class="t-legend">Sequential pipeline step</text>
-
-  <line x1="505" y1="920" x2="535" y2="920" fill="none" stroke="#945bb4" stroke-width="1.8" marker-end="url(#ah-purple)"/>
-  <text x="543" y="924" class="t-legend">SSM connectivity (HTTPS via VPC endpoints)</text>
-
-  <line x1="505" y1="940" x2="535" y2="940" fill="none" stroke="#28a745" stroke-width="1.8" marker-end="url(#ah-green)"/>
-  <text x="543" y="944" class="t-legend">Validation path (pytest via SSM)</text>
-
-  <line x1="505" y1="960" x2="535" y2="960" fill="none" stroke="#1a73e8" stroke-width="1.8" marker-end="url(#ah-blue)"/>
-  <text x="543" y="964" class="t-legend">Build path (Packer → AMI)</text>
-
-  <rect x="505" y="982" width="14" height="14" rx="2" fill="#e8f0fe" stroke="#1a73e8" stroke-width="1" stroke-dasharray="3,2"/>
-  <text x="526" y="994" class="t-legend">VPC boundary</text>
-
-  <rect x="505" y="1004" width="14" height="14" rx="2" fill="#fff8e1" stroke="#f9a825" stroke-width="1"/>
-  <text x="526" y="1016" class="t-legend">Private subnet</text>
-
-  <!-- Panel 3: Key Decisions + Cost -->
-  <rect x="855" y="610" width="525" height="420" rx="6" fill="#fff" stroke="#dee2e6" stroke-width="1"/>
-  <text x="875" y="636" class="t-legend-h">Key Decisions</text>
-  <text x="875" y="656" class="t-legend">SSM over SSH: no inbound port, no key pair, no SSH security group rule.</text>
-  <text x="875" y="671" class="t-legend">The validation mechanism does not contradict the CIS hardening it verifies.</text>
-  <text x="875" y="691" class="t-legend">VPC Endpoints over NAT Gateway: private connectivity to SSM services</text>
-  <text x="875" y="706" class="t-legend">without any public internet exposure. Consistent with ITF Masters Tour.</text>
-  <text x="875" y="726" class="t-legend">OIDC over static keys: short-lived credentials scoped to the repository.</text>
-  <text x="875" y="741" class="t-legend">No long-lived secrets to rotate. Consistent with TerraDriftGuard.</text>
-  <text x="875" y="761" class="t-legend">Private subnet with no internet gateway: the test instance has no public IP</text>
-  <text x="875" y="776" class="t-legend">and no route to the internet. All connectivity is via VPC endpoints.</text>
-  <text x="875" y="796" class="t-legend">default_tags on Terraform provider: every resource tagged for Cost Explorer</text>
-  <text x="875" y="811" class="t-legend">without relying on individual modules. Packer uses tags and run_tags.</text>
-  <text x="875" y="831" class="t-legend">Single pipeline job: Terraform state stays on disk across all stages.</text>
-  <text x="875" y="846" class="t-legend">No artifact passing between runners. Teardown always has access to state.</text>
-  <text x="875" y="866" class="t-legend">IaC discipline: every resource managed by Terraform. No exceptions.</text>
-  <text x="875" y="881" class="t-legend">Lesson applied from TerraDriftGuard (resources surviving terraform destroy).</text>
-
-  <text x="875" y="911" class="t-legend-h">Expected Cost — Ephemeral Deployment</text>
-  <text x="875" y="931" class="t-cost">Packer build — 1 temporary t3.micro instance (minutes) .......................................... &lt;$0.01</text>
-  <text x="875" y="947" class="t-cost">Test EC2 instance — 1 t3.micro in private subnet (minutes) .................................... &lt;$0.01</text>
-  <text x="875" y="963" class="t-cost">VPC Endpoints — 3 interface endpoints (minutes of usage) ..................................... ~$0.03</text>
-  <text x="875" y="979" class="t-cost">AMI storage — deregistered after validation ............................................................. &lt;$0.01</text>
-  <text x="875" y="995" class="t-cost" style="font-weight:700; font-size:10px;">Total: under $1     (all resources destroyed after evidence collection)</text>
-  <text x="875" y="1015" class="t-cost">Project = "GoldenPipeline" tag applied to every resource for Cost Explorer filtering</text>
+  <text x="630" y="746" font-size="10" fill="#3a4a5c">OIDC authentication — no static IAM credentials stored in GitHub</text>
+  <text x="630" y="764" font-size="10" fill="#3a4a5c">SSM over SSH — no open ports, no key pairs, IAM-only authentication</text>
+  <text x="630" y="782" font-size="10" fill="#3a4a5c">Private subnet + VPC endpoints — zero public internet exposure</text>
+  <text x="630" y="800" font-size="10" fill="#3a4a5c">Single CI/CD job — local Terraform state, no artifact passing risk</text>
+  <text x="630" y="818" font-size="10" fill="#3a4a5c">Data source AMI lookup — no manual AMI ID copy between tools</text>
+  <text x="630" y="836" font-size="10" fill="#3a4a5c">Full tagging (Packer + Terraform) — all resources in Cost Explorer</text>
+  <text x="630" y="854" font-size="10" fill="#3a4a5c">AMI + snapshot cleanup in teardown — no silent resource accumulation</text>
+  <text x="630" y="872" font-size="10" fill="#3a4a5c">IaC discipline — every resource managed by Terraform (lesson from TerraDriftGuard)</text>
 
   <!-- Footer -->
-  <text x="700" y="1042" text-anchor="middle" class="t-sub" style="font-size:11px;">GoldenPipeline — Designed and implemented by Malik Hamdane — 2026</text>
+  <text x="600" y="912" text-anchor="middle" font-size="10" fill="#8a95a5">GoldenPipeline — Designed and implemented by Malik Hamdane — 2026</text>
+
 </svg>
