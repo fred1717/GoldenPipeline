@@ -142,6 +142,23 @@ jobs:
       # -------------------------------------------------
       # Stage 4 — Validate
       # -------------------------------------------------
+      - name: "Stage 3.5: Wait for SSM readiness"
+        if: github.event_name == 'push'
+        run: |
+          INSTANCE_ID=$(terraform -chdir="${TERRAFORM_DIR}" output -raw instance_id)
+          echo "Waiting for SSM agent on ${INSTANCE_ID}..."
+          for i in $(seq 1 30);
+          do
+            STATUS=$(aws ssm describe-instance-information --filters "Key=InstanceIds,Values=${INSTANCE_ID}" --query "InstanceInformationList[0].PingStatus" --output text 2>/dev/null)
+            if [ "${STATUS}" = "Online" ]; then
+              echo "SSM agent is online."
+              exit 0
+            fi
+            echo "Attempt ${i}/30: SSM agent not ready (status: ${STATUS}). Waiting 10 seconds..."
+            sleep 10
+          done
+          echo "SSM agent did not come online within 300 seconds."
+          exit 1
 
       - name: "Stage 4: CIS validation tests"
         if: github.event_name == 'push'

@@ -873,7 +873,12 @@ git commit -m "Fix: replace individual ec2:Describe actions with ec2:Describe* w
 git push
 ```
 
-
+##### 13.2.1.14 Forteenth push after updating `.github/workflows/ci-cd.yml` and cleaning up stranded resources, see in 13.2.13 (from root project folder)**
+```bash
+git add .
+git commit -m "Add SSM readiness wait step between terraform apply and pytest."
+git push
+```
 
 
 
@@ -1453,66 +1458,8 @@ aws iam create-policy-version --policy-arn "${POLICY_ARN}" --policy-document fil
 
 Once again, a cleanup is necessary to avoid stranded resources after failed teardown.
 **Going through the same cleanup steps as in 13.2.2.11**
-**Check for running instances and delete them**
-```bash
-for INSTANCE_ID in $(aws ec2 describe-instances --filters "Name=tag:Project,Values=GoldenPipeline" "Name=instance-state-name,Values=running,stopped" --query "Reservations[*].Instances[*].InstanceId" --output text);
-do
-  aws ec2 terminate-instances --instance-ids "${INSTANCE_ID}"
-done
-```
-
-**Check for stranded VPC endpoints and delete them**
-```bash
-aws ec2 describe-vpc-endpoints --filters "Name=tag:Project,Values=GoldenPipeline" --query "VpcEndpoints[*].[Tags[?Key=='Name']|[0].Value,VpcEndpointId,State]" --output text
-ENDPOINT_IDS=$(aws ec2 describe-vpc-endpoints --filters "Name=tag:Project,Values=GoldenPipeline" --query "VpcEndpoints[*].VpcEndpointId" --output text)
-aws ec2 delete-vpc-endpoints --vpc-endpoint-ids ${ENDPOINT_IDS}
-```
-
-**Check and delete Security Groups**
-```bash
-aws ec2 describe-security-groups --filters "Name=tag:Project,Values=GoldenPipeline" --query "SecurityGroups[*].[Tags[?Key=='Name']|[0].Value,GroupId]" --output text
-for SG_ID in $(aws ec2 describe-security-groups --filters "Name=tag:Project,Values=GoldenPipeline" --query "SecurityGroups[*].GroupId" --output text); 
-    do aws ec2 delete-security-group --group-id "${SG_ID}"
-done
-```
-
-**Check VPC and subnet, then delete them**
-```bash
-VPC_ID=$(aws ec2 describe-vpcs --filters "Name=tag:Project,Values=GoldenPipeline" --query "Vpcs[0].VpcId" --output text)
-
-for SUBNET_ID in $(aws ec2 describe-subnets --filters "Name=vpc-id,Values=${VPC_ID}" --query "Subnets[*].SubnetId" --output text);
-  do aws ec2 delete-subnet --subnet-id "${SUBNET_ID}"
-done
-
-aws ec2 delete-vpc --vpc-id "${VPC_ID}"
-```
-
-**Check for stranded IAM resources and clean them up, as in 13.2.2.10**
-```bash
-aws iam get-instance-profile --instance-profile-name GoldenPipeline-ec2-profile --query "InstanceProfile.InstanceProfileName" --output text 2>&1
-aws iam remove-role-from-instance-profile --instance-profile-name GoldenPipeline-ec2-profile --role-name GoldenPipeline-ec2-role
-aws iam delete-instance-profile --instance-profile-name GoldenPipeline-ec2-profile
-aws iam detach-role-policy --role-name GoldenPipeline-ec2-role --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-aws iam delete-role --role-name GoldenPipeline-ec2-role
-```
-
-**Checking the cleanup was complete, for each resource type**
-**EC2 instance tagged with `Project = GoldenPipeline`**
-```bash
-aws ec2 describe-instances --filters "Name=tag:Project,Values=GoldenPipeline" "Name=instance-state-name,Values=running,stopped" --query "Reservations[*].Instances[*].[Tags[?Key=='Name']|[0].Value,InstanceId,State.Name]" --output text
-```
-**Checking VPC endpoints, Security Groups, VPCs**
-```bash
-aws ec2 describe-vpc-endpoints --filters "Name=tag:Project,Values=GoldenPipeline" --query "VpcEndpoints[*].[Tags[?Key=='Name']|[0].Value,VpcEndpointId,State]" --output text
-aws ec2 describe-security-groups --filters "Name=tag:Project,Values=GoldenPipeline" --query "SecurityGroups[*].[Tags[?Key=='Name']|[0].Value,GroupId]" --output text
-aws ec2 describe-vpcs --filters "Name=tag:Project,Values=GoldenPipeline" --query "Vpcs[*].[Tags[?Key=='Name']|[0].Value,VpcId]" --output text
-```
-**Checking for any stranded AMIs created by Packer builds that were not deregistered during failed teardowns**
-```bash
-aws ec2 describe-images --owners self --filters "Name=tag:Project,Values=GoldenPipeline" --query "Images[*].[Name,ImageId,State]" --output text
-```
 **Expected output**
-Nothing, which means that the cleanup was successful.
+Once again, there was no output, which means that the cleanup was successful.
 
 ##### 13.2.2.13 Debugging steps after the thirteenth push
 **Checking the thirteenth push after several minutes, see in 13.2.1.13 (from root project folder)**
@@ -1520,13 +1467,40 @@ Nothing, which means that the cleanup was successful.
 gh run list --limit 1 --json databaseId,conclusion,name,createdAt
 ```
 ```json
-
+[
+  {
+    "conclusion": "failure",
+    "createdAt": "2026-03-10T23:13:09Z",
+    "databaseId": 22928513644,
+    "name": "GoldenPipeline CI/CD"
+  }
+]
 ```
 **For the twelfth time, retrieving the log output of the failed step only (from root project folder)**
 ```bash
-gh run view  --log-failed
+gh run view 22928513644 --log-failed
 ```
 **Verdict**
+Stages 1, 2, and 3 all passed.  
+The failure is at Stage 4.  
+All 39 tests failed with the same error: "Instances not in a valid state for account."
+The instance exists and is running. 
+The problem is that the `SSM` agent has not yet registered with `SSM` when the tests start.  
+The pipeline moves from `terraform apply` to `pytest` immediately, with no wait for `SSM` readiness.
+The fix is to add a wait step in `ci-cd.yml` between Stage 3 and Stage 4 that polls until the instance is registered with `SSM`.
+
+There is now a timeout of 300 seconds (5 minutes), this is not a fixed wait.
+The step checks every 10 seconds. 
+As soon as `SSM` reports "Online", the step exits and Stage 4 starts immediately.  
+Typically this takes 30 to 60 seconds.
+If `SSM` has not registered after 300 seconds, the step fails with exit 1 and the pipeline stops.  
+The tests will never run against an unregistered instance.
+
+**Going through the same cleanup steps as in 13.2.2.11**
+**Expected output**
+This time, there was nothing to clean up.
+
+
 
 
 
