@@ -1,6 +1,59 @@
 ## 0. GoldenPipeline: Project Summary
 
-*To be written last, once the remaining sections are settled.*
+GoldenPipeline is a CI/CD pipeline that, successively:
+- bakes a CIS-hardened Amazon Linux 2023 AMI
+- deploys test infrastructure
+- validates the hardening
+- tears everything down
+
+The pipeline runs in 5 stages:
+- Stage 1 — static analysis:
+    - `terraform fmt`
+    - `tflint`
+    - `checkov`
+    - `packer fmt`
+    - `packer validate`
+
+- Stage 2 — AMI bake: 
+    `packer build` with 6 CIS hardening scripts
+
+- Stage 3 — infrastructure deployment:
+    - `terraform plan`
+    - `terraform apply`
+
+- Stage 4 — CIS validation: 
+    39 `pytest` tests executed via `SSM`
+
+- Stage 5 — teardown:
+    - `terraform destroy`
+    - AMI deregistration
+    - EBS snapshot deletion
+
+The test instance runs in a private subnet with:
+- no internet gateway
+- no public IP
+- no inbound security group rules
+
+All AWS API connectivity is provided by 3 interface VPC endpoints:
+    - `ssm`
+    - `ssmmessages`
+    - `ec2messages`
+
+Validation uses `SSM` Session Manager instead of `SSH`, avoiding open ports and key pair management.
+
+Authentication to AWS from GitHub Actions uses OIDC.
+No static credentials are stored.
+
+Every resource created by both Packer and Terraform is tagged with `Project = "GoldenPipeline"` for visibility in AWS Cost Explorer.
+The tag is activated as a cost allocation tag before deployment.
+
+Terraform state is stored locally.
+The pipeline runs as a single GitHub Actions job to avoid artifact-passing risk during teardown.
+
+The project fills 3 gaps in the portfolio:
+- OS-level security configuration (CIS hardening)
+- image management (Packer, AMI lifecycle)
+- a fully visible security-scanning CI/CD pipeline (`tflint`, `checkov`)
 
 
 
