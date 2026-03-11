@@ -330,7 +330,7 @@ A leaked secret grants persistent access to the AWS account.
 
 The OIDC provider and pipeline IAM role are not managed by Terraform.
 This is a deliberate exception to the IaC discipline principle documented in section 3.3 of `architecture_decisions.md`, 
-see [docs/architecture_decisions.md, section 3.3](docs/architecture_decisions.md#33-iac-discipline:-lesson-from-terradriftguard).
+see [docs/architecture_decisions.md, section 3.3](docs/architecture_decisions.md#33-iac-discipline-lesson-from-terradriftguard).
 
 These resources are bootstrap infrastructure.
 They must exist before the pipeline can authenticate to AWS.
@@ -701,7 +701,7 @@ packer build .
 us-east-1: ami-0538467753044ac7c
 ```
 
-#### 10.2.12 Verifying the AMI with correct tags
+#### 10.2.2 Verifying the AMI with correct tags
 
 **from any directory**
 ```bash
@@ -983,7 +983,7 @@ The following are confirmed empty or absent after teardown:
 - no VPC or subnet remnants
 
 This verification step enforces the IaC discipline principle from `architecture_decisions.md`, section 3.3:
-[docs/architecture_decisions.md, section 3.3](docs/architecture_decisions.md#33-iac-discipline:-lesson-from-terradriftguard)
+[docs/architecture_decisions.md, section 3.3](docs/architecture_decisions.md#33-iac-discipline-lesson-from-terradriftguard)
 
 The last remaining checks are:
 **Checking for any remaining EC2 instances tagged with `Project = GoldenPipeline` (from any directory)**
@@ -1187,7 +1187,7 @@ git branch -M main
 ```
 
 ##### 13.2.1.1 First push
-**All files will then be staged, committed, and pushed (run from the project root directory `Goldenpipeline`):**
+**All files will then be staged, committed, and pushed (run from the project root directory `GoldenPipeline`):**
 ```bash
 git add .
 git commit -m "Initial commit: GoldenPipeline project structure"
@@ -1198,7 +1198,7 @@ This step must also be completed before running `terraform destroy`.
 Once the code is safely in GitHub, nothing is lost when the infrastructure is torn down.
 
 ##### 13.2.1.2 Second push
-**After the OIDC setup and custom policy creation are complete, the changes are committed and pushed, see in 13.2.2.1 (from the project root directory `Goldenpipeline`):**
+**After the OIDC setup and custom policy creation are complete, the changes are committed and pushed, see in 13.2.2.1 (from the project root directory `GoldenPipeline`):**
 ```bash
 git add .
 git commit -m "OIDC setup: trust policy, pipeline permissions policy, .gitignore updated"
@@ -1265,46 +1265,48 @@ git commit -m "Fix: handle inaccessible paths in harden_filesystem.sh find comma
 git push
 ```
 
-##### 13.2.1.10 Tenth push after updating again `pipeline-permissions-policy.json` by adding the `ec2:DescribeInstanceTypes` permission, see in 13.2.9 (from root project folder)**
-**Tenth push after updating `packer/harden_filesystem.sh`, see in 13.2.2.9 (from root project folder)**
+##### 13.2.1.10 Tenth push
+**Tenth push after updating `pipeline-permissions-policy.json` by adding the `ec2:DescribeInstanceTypes` permission, see in 13.2.2.9 (from root project folder)**
 ```bash
 git add .
 git commit -m "Fix: add DescribeInstanceTypes to pipeline policy"
 git push
 ```
 
-##### 13.2.1.11 Eleventh push after updating again cleaning up stranded resources, see in 13.2.10 (from root project folder)**
-**Eleventh push after updating `packer/harden_filesystem.sh`, see in 13.2.2.10 (from root project folder)**
+##### 13.2.1.11 Eleventh push
+**Eleventh push after cleaning up stranded resources, see in 13.2.2.10 (from root project folder)**
 ```bash
 git add .
 git commit -m "Clean stranded IAM resources from failed teardown"
 git push
 ```
 
-##### 13.2.1.12 twelfth push after updating again cleaning up stranded resources, see in 13.2.11 (from root project folder)**
-**Twelfth push after updating `packer/harden_filesystem.sh`, see in 13.2.2.11 (from root project folder)**
+##### 13.2.1.12 Twelfth push
+**Twelfth push after updating `pipeline-permissions-policy.json` by adding the `ec2:DescribeInstanceTypes` permission, see in 13.2.2.11 (from root project folder)**
 ```bash
 git add .
 git commit -m "Fix: add DescribeInstanceTypes to pipeline policy (forgotten before) and clean up stranded resources from failed teardown"
 git push
 ```
 
-##### 13.2.1.13 thirteenth push after updating `pipeline-permissions-policy.json` and cleaning up stranded resources, see in 13.2.12 (from root project folder)**
-**`pipeline-permissions-policy.json` , see in 13.2.2.12 (from root project folder)**
+##### 13.2.1.13 Thirteenth push
+**Thirteenth push after updating `pipeline-permissions-policy.json` , see in 13.2.2.12 (from root project folder)**
 ```bash
 git add .
 git commit -m "Fix: replace individual ec2:Describe actions with ec2:Describe* wildcard and clean up stranded resources from failed teardown"
 git push
 ```
 
-##### 13.2.1.14 fourteenth push after updating `.github/workflows/ci-cd.yml` and cleaning up stranded resources, see in 13.2.13 (from root project folder)**
+##### 13.2.1.14 Fourteenth push
+**Fourteenth push after updating `.github/workflows/ci-cd.yml` and cleaning up stranded resources, see in 13.2.2.13 (from root project folder)**
 ```bash
 git add .
 git commit -m "Add SSM readiness wait step between terraform apply and pytest."
 git push
 ```
 
-##### 13.2.1.15 fifteenth push after updating `test_cis_filesystem.py` and `test_cis_filesystem.py`, see in 13.2.14 (from root project folder)**
+##### 13.2.1.15 Fifteenth push
+**Fifteenth push after updating `test_cis_filesystem.py` and `test_cis_services.py`, see in 13.2.2.14 (from root project folder)**
 ```bash
 git add .
 git commit -m "Fix: stat output comparison and multi-line systemctl output handling in tests"
@@ -2056,8 +2058,11 @@ git push origin main
 ```
 
 
-### 13.4 Release - The `gh release create` command.
-Content depends on the final state of the project.
+### 13.4 Release
+The release is created using the `gh release create` command.
+The tag `v1.0.0` is created automatically on the latest commit.
 
-
-
+**From the project root directory `GoldenPipeline/`:**
+```bash
+gh release create v1.0.0 --title "v1.0.0" --notes "CIS-hardened golden AMI pipeline: Packer, Terraform, pytest validation via SSM, security-scanning CI/CD with tflint and checkov."
+```

@@ -5,7 +5,6 @@ GoldenPipeline/
     pytest.ini
     README.md
     requirements-dev.txt
-    trust-policy.json
 
     docs/
         architecture_decisions.md
@@ -27,10 +26,6 @@ GoldenPipeline/
             ci-cd.yml
 
 
-    notes/
-        design_structure_rationale.md
-
-
     packer/
         .pkr.hcl
         cleanup.sh 
@@ -46,7 +41,6 @@ GoldenPipeline/
         main.tf
         outputs.tf
         terraform.tfvars.example
-        tfplan
         variables.tf
 
 
