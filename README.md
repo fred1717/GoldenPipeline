@@ -1006,18 +1006,154 @@ Nothing, which proves that all remaining VPCs tagged with `Project = GoldenPipel
 ### 12.1 Cost Explorer
 The actual cost is retrieved from AWS Cost Explorer after teardown.
 The `Project = GoldenPipeline` tag is used to filter all charges attributable to the project.
+The results are grouped by AWS service to identify the cost contribution of each component.
 
+**Retrieving the cost breakdown by service (from any directory)**
+```bash
+aws ce get-cost-and-usage --time-period Start=2026-03-10,End=2026-03-12 --granularity DAILY --filter '{"Tags":{"Key":"Project","Values":["GoldenPipeline"]}}' --metrics BlendedCost --group-by Type=DIMENSION,Key=SERVICE
+```
+**Example output**
+```json
+{
+    "GroupDefinitions": [
+        {
+            "Type": "DIMENSION",
+            "Key": "SERVICE"
+        }
+    ],
+    "ResultsByTime": [
+        {
+            "TimePeriod": {
+                "Start": "2026-03-10",
+                "End": "2026-03-11"
+            },
+            "Total": {},
+            "Groups": [
+                {
+                    "Keys": [
+                        "EC2 - Other"
+                    ],
+                    "Metrics": {
+                        "BlendedCost": {
+                            "Amount": "0.0071155119",
+                            "Unit": "USD"
+                        }
+                    }
+                },
+                {
+                    "Keys": [
+                        "Amazon Elastic Compute Cloud - Compute"
+                    ],
+                    "Metrics": {
+                        "BlendedCost": {
+                            "Amount": "0.0147564456",
+                            "Unit": "USD"
+                        }
+                    }
+                },
+                {
+                    "Keys": [
+                        "Amazon Virtual Private Cloud"
+                    ],
+                    "Metrics": {
+                        "BlendedCost": {
+                            "Amount": "0.0021501476",
+                            "Unit": "USD"
+                        }
+                    }
+                }
+            ],
+            "Estimated": true
+        },
+        {
+            "TimePeriod": {
+                "Start": "2026-03-11",
+                "End": "2026-03-12"
+            },
+            "Total": {},
+            "Groups": [
+                {
+                    "Keys": [
+                        "EC2 - Other"
+                    ],
+                    "Metrics": {
+                        "BlendedCost": {
+                            "Amount": "0",
+                            "Unit": "USD"
+                        }
+                    }
+                },
+                {
+                    "Keys": [
+                        "Amazon Elastic Compute Cloud - Compute"
+                    ],
+                    "Metrics": {
+                        "BlendedCost": {
+                            "Amount": "0.0027329016",
+                            "Unit": "USD"
+                        }
+                    }
+                },
+                {
+                    "Keys": [
+                        "Amazon Virtual Private Cloud"
+                    ],
+                    "Metrics": {
+                        "BlendedCost": {
+                            "Amount": "0.0004006274",
+                            "Unit": "USD"
+                        }
+                    }
+                }
+            ],
+            "Estimated": true
+        }
+    ],
+    "DimensionValueAttributes": []
+}
+```
 
 ### 12.2 Cost breakdown
-The cost is broken down by resource.
+The cost is broken down by service.
 Each line item is compared against the estimate from `architecture_decisions.md`, section 4.3:
 [docs/architecture_decisions.md, section 4.3](docs/architecture_decisions.md#43-cost-discipline-for-this-project)
+
+**Breakdown by service, day by day, see 12.1, JSON output above**
+*March 10 (deployment day):*
+- Amazon Elastic Compute Cloud - Compute: $0.0148
+    This covers the instance hours for both the temporary Packer build instance and the test EC2 instance.
+    Multiple pipeline runs occurred on this day (pushes 1 through 15), so this includes instances from failed runs as well.
+- EC2 - Other: $0.0071
+    This covers EBS volumes (root volumes on the instances) and the EBS snapshot created during AMI baking.
+- Amazon Virtual Private Cloud: $0.0022
+    This covers the 3 interface VPC endpoints:
+    - `ssm`
+    - `ssmmessages`
+    - `ec2messages`
+    Interface endpoints are billed per hour per availability zone.
+Day total: $0.0241
+
+*March 11:*
+- Amazon Elastic Compute Cloud - Compute: $0.0027
+    Residual billing from the later pipeline runs on March 10 (the 14th and 15th pushes were close to midnight).
+- EC2 - Other: $0.0000
+    All EBS volumes and snapshots had been deleted by this point.
+- Amazon Virtual Private Cloud: $0.0004
+    Residual VPC endpoint billing from the same late runs.
+Day total: $0.0031
+
+*Totals by service:*
+- EC2 Compute: $0.0175
+- EC2 - Other: $0.0071
+- VPC: $0.0026
+Grand total: approximately $0.03
 
 
 ### 12.3 Portfolio comparison
 The final cost is compared against the previous projects:
 - ITF Masters Tour (approximately $8)
 - TerraDriftGuard (under $1)
+- GoldenPipeline ($0.03)
 
 
 
@@ -1868,13 +2004,56 @@ Resources were created and destroyed within this single pipeline run.
 
 
 ### 13.3 Post-deployment commits
-Placeholder. Content depends on what changes are made after deployment (README updates, evidence, diagram).
 
+#### 13.3.1 Sixteenth push
+The following changes were committed after the pipeline succeeded (see 13.2.2.15).
 
+**Changes included:**
+- `tfplan` added to `.gitignore`.
+  This file is generated by `terraform plan -out=tfplan` during deployment (see 10.3.2).
+  It is environment-specific, not human-readable, and can contain sensitive resource attributes.
+  The plan-then-apply discipline is already documented in sections 10.3.2 and 10.3.3.
+- `repository_structure.md` updated to reflect the current state of the project
+- unused `SENSITIVE_FILES` dictionary removed from `test_cis_filesystem.py`
+- README sections 10 and 11 written, covering deployment evidence and teardown procedure
+- minor typos corrected
 
+**From the project root directory `GoldenPipeline/`:**
+```bash
+git add .
+git commit -m "Post-deployment: gitignore tfplan, remove unused SENSITIVE_FILES, add README sections 10-11, fix typos"
+git push origin main
+```
 
+#### 13.3.2 Seventeenth push
+The architecture diagram has been added.
 
+**From the project root directory `GoldenPipeline/`:**
+```bash
+git add docs/diagrams/goldenpipeline-architecture.svg
+git commit -m "Add architecture diagram"
+git push origin main
+```
 
+#### 13.3.3 Eighteenth push
+Section 0 of `architecture_decisions.md` has been drafted.
+
+**From the project root directory `GoldenPipeline/`:**
+```bash
+git add docs/architecture_decisions.md
+git commit -m "Draft section 0 of architecture_decisions.md"
+git push origin main
+```
+
+#### 13.3.4 Nineteenth push
+Section 12 of the README has been drafted, covering actual cost from Cost Explorer after teardown.
+
+**From the project root directory `GoldenPipeline/`:**
+```bash
+git add README.md
+git commit -m "Draft README section 12: cost breakdown from Cost Explorer"
+git push origin main
+```
 
 
 ### 13.4 Release - The `gh release create` command.
